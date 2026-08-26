@@ -16,9 +16,11 @@ This repository is the early foundation: a FastAPI backend, PostgreSQL financial
 | [Git](https://git-scm.com/) | 2.40+ | Clone the repo |
 | [Python](https://www.python.org/downloads/) | **3.14** | Backend |
 | [Node.js](https://nodejs.org/) | **20.9+** (22 LTS recommended) | Frontend. Includes `npm` |
-| [Docker](https://docs.docker.com/get-started/get-docker/) | Engine 24+ with **Compose v2** | PostgreSQL 16 |
+| [Docker](https://docs.docker.com/get-started/get-docker/) | Engine 24+ with **Compose v2** | Postgres, backend, and frontend containers |
 
 Also install a compiler toolchain: Xcode Command Line Tools (macOS), `build-essential` (Linux), or Visual Studio C++ Build Tools / **WSL2** (Windows).
+
+**Recommended:** Git + Docker only. `docker compose up --build` runs Postgres, the API, and the Next.js UI on macOS, Linux, and Windows. Python and Node are optional and only needed for a native (non-Docker) workflow.
 
 Do **not** install Postgres on the host unless you intend to. The supported database is the `postgres` service in `docker-compose.yml`, on **host port 5433**.
 
@@ -95,7 +97,7 @@ docker compose version
 
 ## Start the project
 
-Use **three terminals** from the repo root. Docker Desktop (or Docker Engine) must already be running.
+Docker Desktop (or Docker Engine) must already be running.
 
 ### 0. First-time setup
 
@@ -118,6 +120,57 @@ Windows: `py -3.14 -c "import secrets; print(secrets.token_urlsafe(48))"`
 
 `LLM_API_KEY` and `LLM_MODEL` can stay empty.
 
+### Run everything with Docker (macOS, Linux, Windows)
+
+This starts Postgres, the FastAPI backend, and the Next.js frontend. You do **not** need Python or Node installed on the host.
+
+Stop any local process already using ports **3000**, **8000**, or **5433**.
+
+```bash
+docker compose up --build
+```
+
+Detached:
+
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose logs -f frontend
+```
+
+| URL | Purpose |
+| --- | --- |
+| http://localhost:3000 | App |
+| http://localhost:3000/signup | Create account |
+| http://localhost:3000/signin | Sign in |
+| http://localhost:8000 | API info |
+| http://localhost:8000/health | Liveness |
+| http://localhost:8000/docs | Swagger UI |
+| http://localhost:8000/redoc | ReDoc |
+
+The frontend container listens on **3000** and calls the API at `http://localhost:8000` from the browser. Backend migrations run automatically on container start (`alembic upgrade head`).
+
+Useful Compose commands:
+
+```bash
+docker compose ps
+docker compose logs -f frontend backend postgres
+docker compose restart frontend
+docker compose down
+```
+
+`docker compose down` stops containers. Add `-v` only if you also want to delete the Postgres volume (that wipes stored users).
+
+Frontend-only rebuild after Dockerfile changes:
+
+```bash
+docker compose up --build frontend
+```
+
+### Native run (optional)
+
+Use this if you want hot reload without rebuilding images. Still start Postgres with Docker.
+
 Python venv (once):
 
 ```bash
@@ -134,9 +187,7 @@ cd frontend
 npm install
 ```
 
-### 1. PostgreSQL
-
-From the repo root:
+Postgres:
 
 ```bash
 docker compose up -d postgres
@@ -145,9 +196,7 @@ docker compose ps
 
 Wait until `postgres` is `healthy`. Host port is **5433**.
 
-### 2. Backend (port 8000)
-
-From the repo root:
+Backend (port 8000), from the repo root:
 
 ```bash
 source .venv/bin/activate
@@ -158,30 +207,14 @@ uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 Windows activate: `.\.venv\Scripts\Activate.ps1`  
 If `python3` is not 3.14: `python3.14 -m venv .venv`
 
-| URL | Purpose |
-| --- | --- |
-| http://localhost:8000 | API info |
-| http://localhost:8000/health | Liveness |
-| http://localhost:8000/ready | Readiness |
-| http://localhost:8000/docs | Swagger UI |
-| http://localhost:8000/redoc | ReDoc |
-
-The API will not start if Postgres is down.
-
-### 3. Frontend (port 3000)
-
-Second terminal — no venv required:
+Frontend (port 3000), in a second terminal:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-| URL | Purpose |
-| --- | --- |
-| http://localhost:3000 | App |
-| http://localhost:3000/signup | Create account |
-| http://localhost:3000/signin | Sign in |
+Do not mix a native Next.js process and the frontend container on port 3000 at the same time.
 
 The frontend calls `http://localhost:8000` (`NEXT_PUBLIC_API_URL`). Copy `frontend/.env.example` to `frontend/.env.local` if you need to override that.
 
@@ -302,6 +335,8 @@ ai-personal-CFO/
 │   └── app/(auth)/          # /signup and /signin
 ├── docs/api/postman-auth.md
 ├── docker-compose.yml
+├── backend/Dockerfile
+├── frontend/Dockerfile
 ├── requirements.txt
 └── .env.example
 ```
