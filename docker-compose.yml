@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: personal-cfo-postgres
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: personal_cfo
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d personal_cfo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
+    container_name: personal-cfo-backend
+
+    environment:
+      APP_NAME: "AI Personal CFO"
+      ENVIRONMENT: development
+      DEBUG: "true"
+
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/personal_cfo
+
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL}
+      SECRET_KEY: ${SECRET_KEY}
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+      - ./ml:/app/ml
+
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+
+    container_name: personal-cfo-frontend
+
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      - backend
+
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
