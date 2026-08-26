@@ -141,52 +141,319 @@ ai-personal-CFO/
 └── .env.example
 ```
 
-## Prerequisites
+## What you need to install
 
-- Python 3.14
-- Node.js 20+
-- Docker Desktop (for PostgreSQL)
-- Git
+Local development needs four host tools. Everything else (Python packages, npm packages, PostgreSQL) is installed from this repo after those tools are in place.
+
+| Tool | Version | Why |
+| --- | --- | --- |
+| [Git](https://git-scm.com/) | 2.40+ | Clone the repo |
+| [Python](https://www.python.org/downloads/) | **3.14** | Backend, Alembic, `requirements.txt` |
+| [Node.js](https://nodejs.org/) | **20.9+** (22 LTS recommended) | Next.js 16 frontend. Includes `npm` |
+| [Docker](https://docs.docker.com/get-started/get-docker/) | Engine 24+ with **Compose v2** | Runs PostgreSQL 16 (`docker compose up postgres`) |
+
+You also need a compiler toolchain on the host. Several packages in `requirements.txt` (NumPy, SciPy, XGBoost, SHAP, Numba, psycopg) expect it.
+
+| Platform | Compiler / build tools |
+| --- | --- |
+| macOS | Xcode Command Line Tools |
+| Linux | `build-essential` (gcc, g++, make) plus Python headers |
+| Windows | Visual Studio Build Tools (C++), or develop inside **WSL2** |
+
+**Do not install PostgreSQL on the host** unless you know you want that. The supported database is the `postgres` service in `docker-compose.yml`, published on **host port 5433**.
+
+Optional, not required to start:
+
+- A code editor (VS Code, Cursor, Zed, etc.)
+- `psql` if you want a SQL shell against the container
+
+Windows note: `uvloop` in `requirements.txt` does not support native Windows. **WSL2 (Ubuntu) is the recommended Windows setup.** Native Windows can still run Git, Node, and Docker Desktop; use WSL2 for the Python backend.
+
+### macOS
+
+1. Install Xcode Command Line Tools:
+
+```bash
+xcode-select --install
+```
+
+2. Install [Homebrew](https://brew.sh/) if you do not have it:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Follow the printed `echo` / `eval` instructions so `brew` is on your `PATH` (Apple Silicon uses `/opt/homebrew`).
+
+3. Install Git, Python 3.14, and Node.js:
+
+```bash
+brew update
+brew install git python@3.14 node
+```
+
+Homebrew’s `node` formula includes `npm`. If `python3` is not 3.14:
+
+```bash
+brew link python@3.14
+echo 'export PATH="$(brew --prefix python@3.14)/libexec/bin:$PATH"' >> ~/.zprofile
+source ~/.zprofile
+```
+
+4. Install [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Open Docker Desktop once and wait until the engine is running.
+
+   Apple Silicon and Intel both work. Grant the filesystem permission Docker asks for so Compose can mount this repo.
+
+5. Confirm:
+
+```bash
+git --version
+python3 --version    # 3.14.x
+node --version       # v20.9+ or v22.x
+npm --version
+docker --version
+docker compose version
+```
+
+### Linux
+
+Commands below are for **Ubuntu / Debian**. Fedora / Arch equivalents are at the end of this subsection.
+
+1. Update packages and install Git, compilers, and Python headers:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  git \
+  curl \
+  ca-certificates \
+  build-essential \
+  python3-pip \
+  python3-venv
+```
+
+2. Install **Python 3.14**. Ubuntu LTS may still ship an older default, so use the [deadsnakes PPA](https://launchpad.net/~deadsnakes/+archive/ubuntu/ppa) or [pyenv](https://github.com/pyenv/pyenv).
+
+deadsnakes (Ubuntu):
+
+```bash
+sudo apt install -y software-properties-common
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install -y python3.14 python3.14-venv python3.14-dev
+```
+
+Use `python3.14` explicitly in the backend steps if `python3` is not 3.14.
+
+3. Install **Node.js 22 LTS** (includes npm), via [NodeSource](https://github.com/nodesource/distributions) or [nvm](https://github.com/nvm-sh/nvm).
+
+NodeSource:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+4. Install **Docker Engine + Compose plugin** (Docker Desktop is optional on Linux). Official convenience script:
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker "$USER"
+```
+
+Log out and back in (or reboot) so the `docker` group applies. Then:
+
+```bash
+sudo systemctl enable --now docker
+docker compose version
+```
+
+If `docker compose` is missing, install the plugin:
+
+```bash
+sudo apt install -y docker-compose-plugin
+```
+
+5. Confirm:
+
+```bash
+git --version
+python3.14 --version
+node --version
+npm --version
+docker --version
+docker compose version
+```
+
+**Fedora**
+
+```bash
+sudo dnf install -y git gcc gcc-c++ make python3.14 python3.14-devel nodejs npm
+# Docker: https://docs.docker.com/engine/install/fedora/
+```
+
+**Arch**
+
+```bash
+sudo pacman -S --needed git base-devel python nodejs npm docker docker-compose
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
+### Windows
+
+**Recommended: WSL2 + Ubuntu**, then follow the Linux section *inside* the WSL distro. Docker Desktop for Windows can run Linux containers and talk to WSL.
+
+#### A. Enable WSL2 (recommended)
+
+In **PowerShell as Administrator**:
+
+```powershell
+wsl --install
+```
+
+Reboot if asked. Open **Ubuntu** from the Start menu, create your Linux user, then install Git, Python 3.14, Node.js, and Docker from the Linux section above.
+
+Install [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/) on the Windows side, enable **Use WSL 2 based engine**, and turn on integration for your Ubuntu distro (`Settings → Resources → WSL integration`).
+
+You still need this on Windows itself:
+
+- [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) (WSL2 backend)
+- Optional: [Git for Windows](https://git-scm.com/download/win) if you also work from PowerShell/cmd
+
+#### B. Native Windows (PowerShell / cmd)
+
+Use this only if you are not using WSL. The Python backend may fail on `uvloop` and other Unix-only wheels.
+
+Install with **winget** (Windows 10/11), or download the installers linked below.
+
+```powershell
+winget install --id Git.Git -e
+winget install --id Python.Python.3.14 -e
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id Docker.DockerDesktop -e
+```
+
+Manual installers if you prefer not to use winget:
+
+| Tool | Installer |
+| --- | --- |
+| Git | https://git-scm.com/download/win |
+| Python 3.14 | https://www.python.org/downloads/windows/ |
+| Node.js LTS | https://nodejs.org/ (LTS) |
+| Docker Desktop | https://docs.docker.com/desktop/setup/install/windows-install/ |
+| C++ build tools | https://visualstudio.microsoft.com/visual-cpp-build-tools/ — select **Desktop development with C++** |
+
+Python installer checklist:
+
+- Enable **Add python.exe to PATH**
+- Enable **py launcher**
+- Open a **new** terminal after install
+
+Docker Desktop checklist:
+
+- Enable WSL2 when the installer asks
+- Start Docker Desktop and wait until it is running
+- BIOS virtualization (VT-x / AMD-V) must be on
+
+Close and reopen the terminal, then confirm:
+
+```powershell
+git --version
+py -3.14 --version
+node --version
+npm --version
+docker --version
+docker compose version
+```
+
+If PowerShell blocks `Activate.ps1` later:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+### Verify the toolchain
+
+Run this from any shell after installing. Python on Windows is `py -3.14` instead of `python3`.
+
+```bash
+git --version
+python3 --version          # Windows: py -3.14 --version
+node --version
+npm --version
+docker --version
+docker compose version
+```
+
+Expected: Python **3.14.x**, Node **v20.9+** (or **v22**), Docker Compose **v2**.
 
 ## Quick start
+
+These steps assume the tools above are installed and Docker is running.
 
 ### 1. Clone and configure
 
 ```bash
 git clone https://github.com/divydoesnotcode/ai-personal-CFO.git
 cd ai-personal-CFO
+```
 
+Copy the env file:
+
+```bash
+# macOS / Linux / WSL
 cp .env.example .env
+
+# Windows PowerShell
+Copy-Item .env.example .env
 ```
 
 Set `SECRET_KEY` in `.env` to a unique string of at least 32 characters:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
+# macOS / Linux / WSL
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+
+# Windows
+py -3.14 -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
 `LLM_API_KEY` and `LLM_MODEL` can stay empty for now.
 
 ### 2. Start PostgreSQL
 
-Postgres is published on **host port 5433** so it does not collide with a local Postgres on 5432.
+Postgres is published on **host port 5433** so it does not collide with a local Postgres on 5432. Docker Desktop (or Docker Engine) must be running.
 
 ```bash
 docker compose up -d postgres
-```
-
-Confirm it is healthy:
-
-```bash
 docker compose ps
 ```
 
+Wait until the `postgres` service is `healthy`.
+
 ### 3. Backend
+
+macOS / Linux / WSL:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+# If python3 is not 3.14:
+# python3.14 -m venv .venv
 
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Windows (cmd / PowerShell), if you are not using WSL:
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
@@ -204,13 +471,15 @@ The API refuses to start if PostgreSQL is unreachable.
 
 ### 4. Frontend
 
+In a **second** terminal (venv is not required):
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The UI is still the Next.js starter; it is wired to call `http://localhost:8000` once the app is built out (`NEXT_PUBLIC_API_URL`).
+Open [http://localhost:3000](http://localhost:3000). Signup UI: [http://localhost:3000/signup](http://localhost:3000/signup). Next.js defaults to port **3000** (`frontend/package.json` → `next dev`; Compose maps `3000:3000`). The frontend is set up to call `http://localhost:8000` (`NEXT_PUBLIC_API_URL`).
 
 ## Environment variables
 
