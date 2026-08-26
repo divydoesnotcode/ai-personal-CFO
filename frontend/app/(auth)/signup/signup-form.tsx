@@ -2,14 +2,22 @@
 
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 import { z } from "zod";
+
+import { fieldErrorsFromValidation, getApiErrorMessage } from "@/lib/api";
+import { signupRequest } from "@/lib/auth-api";
 
 const signupSchema = z
   .object({
     fullName: z.string().trim().min(2, "Enter your full name"),
     email: z.email("Enter a valid email"),
-    password: z.string().min(8, "Use at least 8 characters"),
+    password: z
+      .string()
+      .min(8, "Use at least 8 characters")
+      .refine((value) => /[A-Za-z]/.test(value), "Password must include a letter")
+      .refine((value) => /\d/.test(value), "Password must include a number"),
     confirmPassword: z.string().min(1, "Confirm your password"),
   })
   .refine((value) => value.password === value.confirmPassword, {
@@ -29,19 +37,23 @@ const emptyForm = {
 
 export function SignupForm() {
   const formId = useId();
+  const router = useRouter();
   const [values, setValues] = useState(emptyForm);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [status, setStatus] = useState("");
+  const [statusTone, setStatusTone] = useState<"idle" | "error" | "ok">("idle");
+  const [submitting, setSubmitting] = useState(false);
 
   function setField(name: FieldName, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: undefined }));
     setStatus("");
+    setStatusTone("idle");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const result = signupSchema.safeParse(values);
@@ -61,17 +73,63 @@ export function SignupForm() {
       }
       setErrors(nextErrors);
       setStatus("");
+      setStatusTone("idle");
       return;
     }
 
     setErrors({});
-    setStatus(
-      "Held locally — identity service is not provisioned. No account was created.",
-    );
+    setSubmitting(true);
+    setStatus("Submitting enrollment…");
+    setStatusTone("idle");
+
+    try {
+      await signupRequest({
+        name: result.data.fullName,
+        email: result.data.email,
+        password: result.data.password,
+      });
+
+      setStatus("Account created. Redirecting to sign in…");
+      setStatusTone("ok");
+      router.push("/signin?registered=1");
+    } catch (error) {
+      const apiFields = fieldErrorsFromValidation(error);
+      const nextErrors: FieldErrors = {};
+
+      if (apiFields.name) {
+        nextErrors.fullName = apiFields.name;
+      }
+      if (apiFields.email) {
+        nextErrors.email = apiFields.email;
+      }
+      if (apiFields.password) {
+        nextErrors.password = apiFields.password;
+      }
+
+      const message = getApiErrorMessage(
+        error,
+        "Could not create the account",
+      );
+
+      if (message.toLowerCase().includes("already exists")) {
+        nextErrors.email = message;
+      }
+
+      setErrors(nextErrors);
+      setStatus(message);
+      setStatusTone("error");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit} noValidate>
+    <form
+      className="auth-form"
+      onSubmit={handleSubmit}
+      noValidate
+      aria-busy={submitting}
+    >
       <div className="auth-field">
         <div className="auth-label-row">
           <label className="auth-label" htmlFor={`${formId}-name`}>
@@ -89,6 +147,7 @@ export function SignupForm() {
           spellCheck={false}
           placeholder="Your name"
           value={values.fullName}
+          disabled={submitting}
           aria-invalid={Boolean(errors.fullName)}
           aria-describedby={errors.fullName ? `${formId}-name-error` : undefined}
           onChange={(event) => setField("fullName", event.target.value)}
@@ -115,6 +174,7 @@ export function SignupForm() {
           spellCheck={false}
           placeholder="name@domain.tld"
           value={values.email}
+          disabled={submitting}
           aria-invalid={Boolean(errors.email)}
           aria-describedby={errors.email ? `${formId}-email-error` : undefined}
           onChange={(event) => setField("email", event.target.value)}
@@ -140,6 +200,7 @@ export function SignupForm() {
             autoComplete="new-password"
             placeholder="Min. 8 characters"
             value={values.password}
+            disabled={submitting}
             aria-invalid={Boolean(errors.password)}
             aria-describedby={
               errors.password ? `${formId}-password-error` : undefined
@@ -151,6 +212,7 @@ export function SignupForm() {
             type="button"
             aria-pressed={showPassword}
             aria-label={showPassword ? "Hide password" : "Show password"}
+            disabled={submitting}
             onClick={() => setShowPassword((current) => !current)}
           >
             {showPassword ? (
@@ -181,6 +243,7 @@ export function SignupForm() {
             autoComplete="new-password"
             placeholder="Repeat password"
             value={values.confirmPassword}
+            disabled={submitting}
             aria-invalid={Boolean(errors.confirmPassword)}
             aria-describedby={
               errors.confirmPassword ? `${formId}-confirm-error` : undefined
@@ -194,6 +257,7 @@ export function SignupForm() {
             aria-label={
               showConfirm ? "Hide confirm password" : "Show confirm password"
             }
+            disabled={submitting}
             onClick={() => setShowConfirm((current) => !current)}
           >
             {showConfirm ? (
@@ -208,11 +272,18 @@ export function SignupForm() {
         </p>
       </div>
 
-      <button className="auth-submit" type="submit">
-        Create account
+      <button className="auth-submit" type="submit" disabled={submitting}>
+        {submitting ? "Working" : "Create account"}
       </button>
 
-      <p className="auth-status" role="status">
+      <p
+        className={
+          statusTone === "error"
+            ? "auth-status auth-status--error"
+            : "auth-status"
+        }
+        role="status"
+      >
         {status}
       </p>
 

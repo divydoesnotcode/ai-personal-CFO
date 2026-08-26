@@ -398,6 +398,22 @@
   outline-offset: 3px;
 }
 
+.auth-submit:disabled,
+.auth-toggle:disabled,
+.auth-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.auth-submit:disabled:hover {
+  background: transparent;
+  color: var(--auth-ink);
+}
+
+.auth-submit:disabled:active {
+  transform: none;
+}
+
 .auth-status {
   min-height: 1.1rem;
   font-family: var(--auth-mono);
@@ -405,6 +421,10 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--auth-ink-dim);
+}
+
+.auth-status--error {
+  color: var(--auth-danger);
 }
 
 .auth-alt {
