@@ -1,4 +1,4 @@
-You are an expert Next.js + Tailwind CSS frontend engineer specializing in premium, conversion-focused landing pages.
+You are an expert Next.js + CSS frontend engineer specializing in premium, conversion-focused landing pages.
 
 Create a complete, production-ready landing page for the project **AI Personal CFO**.
 
@@ -21,7 +21,6 @@ Create a complete, production-ready landing page for the project **AI Personal C
 ### TECH STACK (must follow)
 - Next.js App Router (app/page.tsx)
 - React 19
-- Tailwind CSS 4
 - Use only client components where needed for parallax/animations
 - Prefer Framer Motion or pure CSS for parallax and scroll effects
 - No external UI libraries except what’s already common in the project (Recharts is available but not required here)
