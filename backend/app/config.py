@@ -28,6 +28,8 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = Field(min_length=32)
 
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+
     LLM_API_KEY: str | None = None
     LLM_MODEL: str | None = None
 

@@ -43,6 +43,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from backend.app.api.auth import router as auth_router
 from backend.app.config import settings
 
 # Database Connection
@@ -275,19 +276,8 @@ def create_application() -> FastAPI:
     # -------------------------------------------------------------------------
     # API Routers
     # -------------------------------------------------------------------------
-    #
-    # Routers should be imported and registered here as the backend grows.
-    #
-    # Example:
-    #
-    # from backend.app.api.v1.router import api_router
-    # application.include_router(
-    #     api_router,
-    #     prefix="/api/v1",
-    # )
-    #
-    # Do NOT put endpoint implementation directly into this file.
-    # -------------------------------------------------------------------------
+
+    application.include_router(auth_router)
 
     return application
 

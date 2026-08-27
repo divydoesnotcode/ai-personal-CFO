@@ -1,0 +1,14 @@
+.git
+.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+frontend
+node_modules
+.next
+ml/models
+data/raw
+data/processed
+*.md
+.DS_Store
+.grok

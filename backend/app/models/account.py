@@ -169,6 +169,7 @@ class Account(BaseModel):
     transactions: Mapped[list["Transaction"]] = relationship(
         "Transaction",
         back_populates="account",
+        foreign_keys="Transaction.account_id",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

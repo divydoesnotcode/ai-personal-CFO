@@ -1,26 +1,1389 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   AI PERSONAL CFO — DESIGN SYSTEM
+   ─────────────────────────────────────────────────────────────────────────────
+   Single source of truth for the entire frontend.
+   Namespace: cfo-*
+
+   Sections
+   ─────────
+   1.  Design tokens          (:root CSS variables)
+   2.  Base                   (body, selection, scroll)
+   3.  Root wrapper           (.cfo-root)
+   4.  Layout utilities       (.cfo-container, .cfo-section)
+   5.  Background decoration  (.cfo-grid, .cfo-guide)
+   6.  Top bar                (.cfo-top, .cfo-brand, .cfo-pulse)
+   7.  Typography             (.cfo-kicker, .cfo-display-title, .cfo-lede, .cfo-coords)
+   8.  Cards & Panels         (.cfo-panel, .cfo-panel-head, .cfo-card)
+   9.  Corner brackets        (.cfo-corner)
+   10. Form components        (.cfo-field, .cfo-label, .cfo-input, .cfo-hint, .cfo-error)
+   11. Buttons                (.cfo-btn, .cfo-btn--ghost, .cfo-btn--fill)
+   12. Badges                 (.cfo-badge)
+   13. Scroll-reveal          (.cfo-reveal, .cfo-visible)
+   14. Keyframe animations
+   15. Footer                 (.cfo-foot, .cfo-foot-link)
+   16. Landing-page layout    (hero, sections, grids — page-specific)
+   17. Responsive breakpoints
+   18. Reduced-motion
+══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. DESIGN TOKENS ────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --cfo-bg: #0b0b0a;
+  --cfo-bg-elevated: #111110;
+
+  /* Ink */
+  --cfo-ink: #efeae1;
+  --cfo-ink-dim: #9a9488;
+  --cfo-ink-faint: #5c5850;
+
+  /* Lines */
+  --cfo-line: rgba(239, 234, 225, 0.10);
+  --cfo-line-strong: rgba(239, 234, 225, 0.22);
+
+  /* Accent — burnt orange */
+  --cfo-accent: #c45c26;
+  --cfo-accent-soft: rgba(196, 92, 38, 0.14);
+
+  /* Semantic */
+  --cfo-danger: #d26a5a;
+  --cfo-success: #5fa67a;
+  --cfo-warn: #c9963a;
+
+  /* Font stacks (variables injected by layout.tsx) */
+  --cfo-display: var(--font-cfo-display), "Times New Roman", serif;
+  --cfo-sans: var(--font-cfo-sans), "Helvetica Neue", Helvetica, sans-serif;
+  --cfo-mono: var(--font-cfo-mono), ui-monospace, "SFMono-Regular", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── 2. BASE ─────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--cfo-bg);
+  color: var(--cfo-ink);
+  font-family: var(--cfo-sans);
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 3. ROOT WRAPPER ─────────────────────────────────────────────────────── */
+/*
+  Wrap any page's top-level <div> with .cfo-root to inherit the full
+  design system context (isolation, stacking context, selection colour).
+*/
+.cfo-root {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--cfo-bg);
+  color: var(--cfo-ink);
+  font-family: var(--cfo-sans);
+  color-scheme: dark;
+}
+
+.cfo-root ::selection {
+  background: var(--cfo-accent);
+  color: var(--cfo-bg);
+}
+
+/* ── 4. LAYOUT UTILITIES ─────────────────────────────────────────────────── */
+/* Centred content column matching the auth panel width */
+.cfo-container {
+  width: min(1120px, calc(100% - 2.3rem));
+  margin: 0 auto;
+}
+
+/*
+  Standard page section.
+  Add .cfo-section--alt for the alternate background stripe.
+*/
+.cfo-section {
+  padding: 6rem 1.15rem;
+  border-top: 1px solid var(--cfo-line);
+}
+
+.cfo-section--alt {
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 40%, transparent);
+}
+
+/* ── 5. BACKGROUND DECORATION ────────────────────────────────────────────── */
+/*
+  .cfo-grid   — the faint ruled-paper grid used on auth + landing pages.
+  .cfo-guide  — thin 1 px guide lines (vertical / horizontal variants).
+  Place these as the first children of .cfo-root so z-index stacking works.
+*/
+.cfo-grid {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, var(--cfo-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--cfo-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center top;
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 30%,
+      #000 20%,
+      transparent 80%);
+  opacity: 0.45;
+}
+
+.cfo-guide {
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+  background: var(--cfo-line);
+}
+
+.cfo-guide--v {
+  top: 0;
+  bottom: 0;
+  left: 11vw;
+  width: 1px;
+}
+
+.cfo-guide--h {
+  top: 88px;
+  right: 0;
+  left: 0;
+  height: 1px;
+}
+
+/* Push all direct children of .cfo-root above the decorative layer */
+.cfo-root>*:not(.cfo-grid):not(.cfo-guide) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 6. TOP BAR ──────────────────────────────────────────────────────────── */
+/*
+  Sticky top navigation bar — no links, just system metadata.
+  Structure:
+    <header class="cfo-top">
+      <p class="cfo-brand">NAME <span>//</span> CONTEXT</p>
+      <p class="cfo-top-meta">…metadata spans…</p>
+    </header>
+*/
+.cfo-top {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 52px;
+  padding: 0 1.15rem;
+  border-bottom: 1px solid var(--cfo-line);
+  background: color-mix(in srgb, var(--cfo-bg) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-family: var(--cfo-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+}
+
+.cfo-brand {
+  color: var(--cfo-ink);
+  font-family: var(--cfo-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cfo-brand span {
+  color: var(--cfo-accent);
+}
+
+.cfo-top-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem 1.1rem;
+}
+
+/* Blinking status dot */
+.cfo-pulse {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 0.45rem;
+  background: var(--cfo-accent);
+  vertical-align: 1px;
+  animation: cfoPulse 2s ease-in-out infinite;
+}
+
+/* ── 7. TYPOGRAPHY ───────────────────────────────────────────────────────── */
+
+/*
+  Section label that appears above every heading.
+  Has a leading accent line (::before).
+
+  <p class="cfo-kicker">01 / Category</p>
+*/
+.cfo-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.15rem;
+  font-family: var(--cfo-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+}
+
+.cfo-kicker::before {
+  content: "";
+  width: 1.5rem;
+  height: 1px;
+  background: var(--cfo-accent);
+  flex-shrink: 0;
+}
+
+/*
+  Large editorial display heading — Instrument Serif, uppercase.
+  Use font-size utilities (Tailwind or custom) to control size per context.
+*/
+.cfo-display-title {
+  margin: 0;
+  font-family: var(--cfo-display);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+}
+
+.cfo-display-title em {
+  font-style: italic;
+  color: var(--cfo-accent);
+}
+
+/* Subdued body text beneath headings */
+.cfo-lede {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+}
+
+/* Coordinate/build-ref line below hero copy */
+.cfo-coords {
+  font-family: var(--cfo-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+  line-height: 1.8;
+}
+
+/* Muted inline text helper */
+.cfo-dim {
+  color: var(--cfo-ink-faint);
+}
+
+/* ── 8. CARDS & PANELS ───────────────────────────────────────────────────── */
+
+/*
+  .cfo-panel — bordered rectangular panel (no border-radius) used for
+  forms, roadmaps, metric displays.
+*/
+.cfo-panel {
+  position: relative;
+  padding: 1.5rem 1.35rem;
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 86%, transparent);
+  border: 1px solid var(--cfo-line-strong);
+}
+
+/*
+  Header row inside a panel — mono labels + divider.
+*/
+.cfo-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.35rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--cfo-line);
+  font-family: var(--cfo-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+}
+
+.cfo-panel-head strong {
+  color: var(--cfo-ink);
+  font-weight: 500;
+}
+
+/*
+  .cfo-card — lighter surface for feature / info cards.
+  Hover shifts border to be more visible.
+*/
+.cfo-card {
+  position: relative;
+  padding: 1.35rem 1.15rem;
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
+  border: 1px solid var(--cfo-line-strong);
+  transition: border-color 160ms ease;
+}
+
+.cfo-card:hover {
+  border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+}
+
+/* ── 9. CORNER BRACKETS ──────────────────────────────────────────────────── */
+/*
+  Decorative corner tick-marks placed on panels/cards.
+  Usage:
+    <span class="cfo-corner cfo-corner--tl" aria-hidden="true" />
+    <span class="cfo-corner cfo-corner--tr" aria-hidden="true" />
+    <span class="cfo-corner cfo-corner--bl" aria-hidden="true" />
+    <span class="cfo-corner cfo-corner--br" aria-hidden="true" />
+  Add cfo-corner--accent to tl + br for the orange accent pair.
+*/
+.cfo-corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 0 solid var(--cfo-ink-dim);
+  pointer-events: none;
+}
+
+.cfo-corner--tl {
+  top: -1px;
+  left: -1px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+
+.cfo-corner--tr {
+  top: -1px;
+  right: -1px;
+  border-top-width: 1px;
+  border-right-width: 1px;
+}
+
+.cfo-corner--bl {
+  bottom: -1px;
+  left: -1px;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+}
+
+.cfo-corner--br {
+  bottom: -1px;
+  right: -1px;
+  border-bottom-width: 1px;
+  border-right-width: 1px;
+}
+
+/* Accent tint — apply to tl and br together */
+.cfo-corner--tl.cfo-corner--accent {
+  border-color: var(--cfo-accent);
+}
+
+.cfo-corner--br.cfo-corner--accent {
+  border-color: var(--cfo-accent);
+}
+
+/* ── 10. FORM COMPONENTS ─────────────────────────────────────────────────── */
+/*
+  Consistent form primitives used across auth forms, waitlist forms, and
+  any future in-app forms.
+*/
+.cfo-form {
+  display: grid;
+  gap: 1.05rem;
+}
+
+.cfo-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cfo-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cfo-label {
+  font-family: var(--cfo-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+}
+
+.cfo-hint {
+  font-family: var(--cfo-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+}
+
+.cfo-control {
+  position: relative;
+}
+
+.cfo-input {
+  width: 100%;
+  height: 46px;
+  padding: 0 0.85rem;
+  background: transparent;
+  border: 1px solid var(--cfo-line-strong);
+  border-radius: 0;
+  color: var(--cfo-ink);
+  font-family: var(--cfo-sans);
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.cfo-input--padded {
+  padding-right: 2.75rem;
+}
+
+.cfo-input::placeholder {
+  color: var(--cfo-ink-faint);
+}
+
+.cfo-input:hover {
+  border-color: color-mix(in srgb, var(--cfo-ink) 45%, transparent);
+}
+
+.cfo-input:focus {
+  border-color: var(--cfo-accent);
+  background: var(--cfo-accent-soft);
+}
+
+.cfo-input[aria-invalid="true"] {
+  border-color: var(--cfo-danger);
+}
+
+.cfo-input[aria-invalid="true"]:focus {
+  background: color-mix(in srgb, var(--cfo-danger) 12%, transparent);
+}
+
+.cfo-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Password reveal toggle inside .cfo-control */
+.cfo-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--cfo-ink-dim);
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.cfo-toggle:hover,
+.cfo-toggle:focus-visible {
+  color: var(--cfo-ink);
+}
+
+.cfo-toggle:focus-visible {
+  outline: 1px solid var(--cfo-accent);
+  outline-offset: -1px;
+}
+
+.cfo-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Inline validation messages */
+.cfo-error {
+  min-height: 1rem;
+  font-family: var(--cfo-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cfo-danger);
+}
+
+.cfo-status {
+  min-height: 1.1rem;
+  font-family: var(--cfo-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+}
+
+.cfo-status--error {
+  color: var(--cfo-danger);
+}
+
+.cfo-status--ok {
+  color: var(--cfo-success);
+}
+
+/* ── 11. BUTTONS ─────────────────────────────────────────────────────────── */
+/*
+  .cfo-btn         — base shared button traits
+  .cfo-btn--ghost  — transparent with ink border (default, matches auth-submit)
+  .cfo-btn--fill   — filled with ink colour (inverted)
+  .cfo-btn--accent — filled with accent colour
+*/
+.cfo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 48px;
+  padding: 0 1.35rem;
+  font-family: var(--cfo-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  border-radius: 0;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.cfo-btn:active {
+  transform: translateY(1px);
+}
+
+.cfo-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.cfo-btn:disabled:active {
+  transform: none;
+}
+
+.cfo-btn:focus-visible {
+  outline: 1px solid var(--cfo-accent);
+  outline-offset: 3px;
+}
+
+/* Ghost — transparent fill, ink border */
+.cfo-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--cfo-ink);
+  color: var(--cfo-ink);
+}
+
+.cfo-btn--ghost:hover:not(:disabled) {
+  background: var(--cfo-ink);
+  color: var(--cfo-bg);
+}
+
+/* Fill — solid ink */
+.cfo-btn--fill {
+  background: var(--cfo-ink);
+  border: 1px solid var(--cfo-ink);
+  color: var(--cfo-bg);
+}
+
+.cfo-btn--fill:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cfo-ink) 85%, transparent);
+}
+
+/* Accent — burnt-orange */
+.cfo-btn--accent {
+  background: var(--cfo-accent);
+  border: 1px solid var(--cfo-accent);
+  color: var(--cfo-bg);
+}
+
+.cfo-btn--accent:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cfo-accent) 85%, transparent);
+}
+
+/* Width helpers */
+.cfo-btn--full {
+  width: 100%;
+}
+
+/* ── 12. BADGES ──────────────────────────────────────────────────────────── */
+.cfo-badge {
+  font-family: var(--cfo-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid var(--cfo-line-strong);
+  padding: 2px 6px;
+  color: var(--cfo-ink-faint);
+}
+
+.cfo-badge--warn {
+  border-color: color-mix(in srgb, var(--cfo-warn) 40%, transparent);
+  color: var(--cfo-warn);
+}
+
+.cfo-badge--ok {
+  border-color: color-mix(in srgb, var(--cfo-success) 40%, transparent);
+  color: var(--cfo-success);
+}
+
+.cfo-badge--danger {
+  border-color: color-mix(in srgb, var(--cfo-danger) 40%, transparent);
+  color: var(--cfo-danger);
+}
+
+/* ── 13. SCROLL-REVEAL ───────────────────────────────────────────────────── */
+.cfo-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.cfo-reveal.cfo-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── 14. KEYFRAME ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes cfoPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes cfoFloat {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes cfoFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 15. FOOTER ──────────────────────────────────────────────────────────── */
+.cfo-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding: 0.85rem 1.15rem;
+  border-top: 1px solid var(--cfo-line);
+  font-family: var(--cfo-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+  background: color-mix(in srgb, var(--cfo-bg) 92%, transparent);
+}
+
+.cfo-foot-left,
+.cfo-foot-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.1rem;
+}
+
+.cfo-foot-tag {
+  color: var(--cfo-ink-faint);
+}
+
+.cfo-foot-copy {
+  color: var(--cfo-ink-faint);
+}
+
+.cfo-foot-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--cfo-ink-dim);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.cfo-foot-link:hover {
+  color: var(--cfo-ink);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LANDING PAGE — LAYOUT CLASSES
+   Page-specific layout built on top of the shared design system above.
+   These classes are scoped to the landing page and shouldn't conflict
+   with auth or future app pages.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+.lp-hero {
+  min-height: calc(100dvh - 52px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4rem 1.15rem 6rem;
+  position: relative;
+}
+
+.lp-hero-inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3.5rem;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.lp-hero-copy {
+  max-width: 38rem;
+}
+
+.lp-hero-title {
+  margin: 0;
+  font-family: var(--cfo-display);
+  font-size: clamp(3rem, 9vw, 6rem);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+}
+
+.lp-hero-title em {
+  font-style: italic;
+  color: var(--cfo-accent);
+}
+
+.lp-hero-lede {
+  max-width: 40ch;
+  margin: 1.4rem 0 0;
+  font-size: 1.02rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+}
+
+.lp-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-top: 2rem;
+}
+
+.lp-hero-support {
+  font-family: var(--cfo-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+}
+
+/* Floating metric cards */
+.lp-hero-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.lp-metric-card {
+  position: relative;
+  padding: 1.1rem 1.25rem;
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 86%, transparent);
+  border: 1px solid var(--cfo-line-strong);
+  min-width: 168px;
+  animation: cfoFloat 5s ease-in-out infinite;
+  animation-fill-mode: both;
+}
+
+.lp-metric-label {
+  font-family: var(--cfo-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cfo-accent);
+  margin-bottom: 0.4rem;
+}
+
+.lp-metric-value {
+  font-family: var(--cfo-display);
+  font-size: 1.7rem;
+  font-weight: 400;
+  color: var(--cfo-ink);
+  line-height: 1;
+}
+
+.lp-metric-sub {
+  font-family: var(--cfo-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+  margin-top: 0.45rem;
+}
+
+/* Scroll cue */
+.lp-scroll-cue {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0.35;
+}
+
+.lp-scroll-label {
+  font-family: var(--cfo-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+}
+
+.lp-scroll-line {
+  width: 1px;
+  height: 2.5rem;
+  background: linear-gradient(to bottom, var(--cfo-ink-dim), transparent);
+}
+
+/* ── Section shared head ──────────────────────────────────────────────────── */
+.lp-section-head {
+  max-width: 42rem;
+  margin-bottom: 3.5rem;
+}
+
+.lp-section-title {
+  margin: 0;
+  font-family: var(--cfo-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+}
+
+.lp-section-title em {
+  font-style: italic;
+  color: var(--cfo-accent);
+}
+
+.lp-section-lede {
+  max-width: 36ch;
+  margin: 1.1rem 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+}
+
+.lp-closing-line {
+  margin-top: 3rem;
+  font-size: 1.05rem;
+  color: var(--cfo-ink-dim);
+  font-style: italic;
+}
+
+.lp-closing-line strong {
+  color: var(--cfo-ink);
+  font-style: normal;
+}
+
+/* ── Problem grid ────────────────────────────────────────────────────────── */
+.lp-pain-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.lp-pain-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1.25rem 1.1rem;
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
+  border: 1px solid var(--cfo-line-strong);
+  transition: border-color 160ms ease;
+}
+
+.lp-pain-card:hover {
+  border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+}
+
+.lp-pain-icon {
+  color: var(--cfo-danger);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.lp-pain-text {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+}
+
+/* ── Pillar grid ─────────────────────────────────────────────────────────── */
+.lp-pillar-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+.lp-pillar {
+  position: relative;
+  padding: 1.75rem 1.4rem;
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 80%, transparent);
+  border: 1px solid var(--cfo-line-strong);
+  transition: border-color 160ms ease;
+}
+
+.lp-pillar:hover {
+  border-color: color-mix(in srgb, var(--cfo-accent) 40%, transparent);
+}
+
+.lp-pillar-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--cfo-line-strong);
+  color: var(--cfo-accent);
+  margin-bottom: 1.1rem;
+}
+
+.lp-pillar-title {
+  font-family: var(--cfo-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+  margin: 0 0 0.65rem;
+}
+
+.lp-pillar-desc {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+  margin: 0;
+}
+
+/* ── Feature grid ────────────────────────────────────────────────────────── */
+.lp-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.lp-feature-card {
+  position: relative;
+  padding: 1.35rem 1.15rem;
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
+  border: 1px solid var(--cfo-line-strong);
+  transition: border-color 160ms ease;
+}
+
+.lp-feature-card:hover {
+  border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+}
+
+.lp-feature-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.9rem;
+}
+
+.lp-feature-icon {
+  color: var(--cfo-accent);
+}
+
+.lp-feature-title {
+  font-family: var(--cfo-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+  margin: 0 0 0.5rem;
+}
+
+.lp-feature-desc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+  margin: 0;
+}
+
+/* ── How it works ────────────────────────────────────────────────────────── */
+.lp-how-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem 2rem;
+}
+
+.lp-how-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.lp-how-num {
+  font-family: var(--cfo-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cfo-accent);
+}
+
+.lp-how-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--cfo-line-strong);
+  color: var(--cfo-ink-dim);
+}
+
+.lp-how-title {
+  font-family: var(--cfo-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+  margin: 0;
+}
+
+.lp-how-desc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+  margin: 0;
+  max-width: 22ch;
+}
+
+/* ── Who it's for ────────────────────────────────────────────────────────── */
+.lp-who-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.lp-who-card {
+  position: relative;
+  padding: 1.5rem 1.25rem;
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
+  border: 1px solid var(--cfo-line-strong);
+  transition: border-color 160ms ease;
+}
+
+.lp-who-card:hover {
+  border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+}
+
+.lp-who-emoji {
+  font-size: 1.6rem;
+  display: block;
+  margin-bottom: 0.9rem;
+}
+
+.lp-who-title {
+  font-family: var(--cfo-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cfo-ink);
+  margin: 0 0 0.6rem;
+}
+
+.lp-who-desc {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--cfo-ink-dim);
+  margin: 0;
+}
+
+/* ── Roadmap ─────────────────────────────────────────────────────────────── */
+.lp-road-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.lp-road-step {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.lp-road-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--cfo-line-strong);
+  flex-shrink: 0;
+  color: var(--cfo-ink-faint);
+}
+
+.lp-road-dot--done {
+  border-color: var(--cfo-success);
+  color: var(--cfo-success);
+}
+
+.lp-road-dot--active {
+  border-color: var(--cfo-accent);
+  color: var(--cfo-accent);
+}
+
+.lp-road-pulse {
+  display: block;
+  width: 6px;
+  height: 6px;
+  background: var(--cfo-accent);
+  animation: cfoPulse 1.6s ease-in-out infinite;
+}
+
+.lp-road-label {
+  font-family: var(--cfo-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+}
+
+.lp-road-label--done {
+  color: var(--cfo-ink-dim);
+}
+
+.lp-road-label--active {
+  color: var(--cfo-ink);
+}
+
+/* ── CTA / Waitlist ──────────────────────────────────────────────────────── */
+.lp-cta-inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+}
+
+.lp-cta-form-wrap {
+  display: flex;
+}
+
+.lp-waitlist-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.lp-form-note {
+  font-family: var(--cfo-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+  text-align: center;
+}
+
+.lp-submitted {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 0 0.5rem;
+  text-align: center;
+}
+
+.lp-submitted-icon {
+  color: var(--cfo-success);
+}
+
+.lp-submitted-title {
+  font-family: var(--cfo-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--cfo-ink);
+  text-transform: uppercase;
+}
+
+.lp-submitted-sub {
+  font-family: var(--cfo-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+}
+
+/* ── Hide helpers ────────────────────────────────────────────────────────── */
+.cfo-hide-sm {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 640px) {
+  .lp-pain-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lp-who-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .cfo-hide-sm {
+    display: inline;
+  }
+}
+
+@media (min-width: 768px) {
+  .lp-feature-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lp-pillar-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .lp-how-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .lp-cta-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+    align-items: start;
+    gap: 5rem;
+  }
+}
+
+@media (min-width: 960px) {
+  .cfo-top {
+    height: 56px;
+  }
+
+  .cfo-guide--v {
+    left: max(4rem, calc((100vw - 1120px) / 2 + 8px));
+  }
+
+  .lp-hero-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 460px);
+    align-items: center;
+    min-height: calc(100dvh - 56px);
+    gap: 5rem;
+  }
+
+  .lp-hero {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .cfo-coords {
+    margin: 1.4rem 0 0;
+    display: block;
+  }
+
+  .lp-feature-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 429px) {
+  .lp-hero-title {
+    font-size: clamp(2.6rem, 13vw, 3.4rem);
+  }
+
+  .lp-section-title {
+    font-size: clamp(1.9rem, 10vw, 2.5rem);
+  }
+
+  .lp-how-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .cfo-section {
+    padding: 4rem 1rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION
+═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .cfo-reveal {
+    transition: none;
+  }
+
+  .lp-metric-card {
+    animation: none;
+  }
+
+  .cfo-pulse,
+  .lp-road-pulse {
+    animation: none;
+  }
+
+  .cfo-btn,
+  .cfo-input,
+  .lp-pillar,
+  .lp-pain-card,
+  .lp-feature-card,
+  .lp-who-card,
+  .cfo-foot-link,
+  .cfo-card {
+    transition: none;
+  }
 }
