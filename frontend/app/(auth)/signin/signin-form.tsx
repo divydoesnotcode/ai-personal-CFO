@@ -84,7 +84,7 @@ function SigninFormInner() {
 
       setStatus("Signed in. Redirecting…");
       setStatusTone("ok");
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (error) {
       const apiFields = fieldErrorsFromValidation(error);
