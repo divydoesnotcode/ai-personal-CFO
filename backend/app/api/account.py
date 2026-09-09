@@ -28,7 +28,7 @@ from backend.app.schemas.account import (
 from backend.app.services import account_service
 from backend.app.services.account_service import AccountError
 from backend.app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
-from backend.app.utils.security import ACCESS_TOKEN_COOKIE
+from backend.app.utils.security import ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, access_token_cookie_max_age, refresh_token_cookie_max_age
 
 router = APIRouter(prefix="/api", tags=["Account"])
 
@@ -65,11 +65,21 @@ def _preferences(pref: UserPreference) -> FinancialPreferencesOut:
     )
 
 
+_IS_PROD = settings.ENVIRONMENT.lower() == "production"
+
+
 def _clear_cookie(response: Response) -> None:
     response.delete_cookie(
         key=ACCESS_TOKEN_COOKIE,
         path="/",
-        secure=settings.ENVIRONMENT.lower() == "production",
+        secure=_IS_PROD,
+        httponly=True,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key=REFRESH_TOKEN_COOKIE,
+        path="/api/auth",
+        secure=_IS_PROD,
         httponly=True,
         samesite="lax",
     )
@@ -202,7 +212,7 @@ async def post_password(
     user: User = Depends(get_current_user),
 ) -> ItemResponse:
     try:
-        token = await account_service.change_password(
+        access_token, refresh_token = await account_service.change_password(
             db,
             user,
             current_password=payload.current_password,
@@ -217,11 +227,31 @@ async def post_password(
     except AccountError as exc:
         raise _http_error(status.HTTP_400_BAD_REQUEST, exc.message) from exc
 
+    # Rotate both cookies after a password change.
+    response.set_cookie(
+        key=ACCESS_TOKEN_COOKIE,
+        value=access_token,
+        httponly=True,
+        secure=_IS_PROD,
+        samesite="lax",
+        max_age=access_token_cookie_max_age(),
+        path="/",
+    )
+    response.set_cookie(
+        key=REFRESH_TOKEN_COOKIE,
+        value=refresh_token,
+        httponly=True,
+        secure=_IS_PROD,
+        samesite="lax",
+        max_age=refresh_token_cookie_max_age(),
+        path="/api/auth",
+    )
+
     return ItemResponse(
         success=True,
         message="Password updated",
         data=PasswordChangeData(
-            token=token,
+            token=access_token,
             user=_profile(user),
         ).model_dump(mode="json", by_alias=True),
     )

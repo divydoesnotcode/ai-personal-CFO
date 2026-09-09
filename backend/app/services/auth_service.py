@@ -19,6 +19,7 @@ from backend.app.models.user import User
 from backend.app.models.user_session import UserSession
 from backend.app.utils.security import (
     create_access_token,
+    create_refresh_token,
     decode_access_token,
     hash_password,
     verify_password,
@@ -88,16 +89,23 @@ async def issue_session(
     user: User,
     *,
     user_agent: str | None = None,
-) -> str:
+) -> tuple[str, str]:
+    """Create a new session and return ``(access_token, refresh_token)``.
+
+    The access token is a short-lived signed JWT.
+    The refresh token is an opaque random string stored in the DB row.
+    """
     now = datetime.now(timezone.utc)
+    refresh_token = create_refresh_token()
     session = UserSession(
         user_id=user.id,
-        expires_at=now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         user_agent=(user_agent or "Unknown")[:255],
+        refresh_token=refresh_token,
     )
     db.add(session)
     await db.flush()
-    token = create_access_token(
+    access_token = create_access_token(
         user_id=user.id,
         email=user.email,
         token_version=user.token_version,
@@ -105,7 +113,7 @@ async def issue_session(
     )
     await db.commit()
     await db.refresh(user)
-    return token
+    return access_token, refresh_token
 
 
 async def authenticate_user(
@@ -114,7 +122,8 @@ async def authenticate_user(
     email: str,
     password: str,
     user_agent: str | None = None,
-) -> tuple[User, str]:
+) -> tuple[User, str, str]:
+    """Verify credentials and return ``(user, access_token, refresh_token)``."""
     user = await get_user_by_email(db, email)
 
     if user is None or not user.is_active:
@@ -135,8 +144,54 @@ async def authenticate_user(
     if not matched:
         raise InvalidCredentialsError()
 
-    token = await issue_session(db, user, user_agent=user_agent)
-    return user, token
+    access_token, refresh_token = await issue_session(db, user, user_agent=user_agent)
+    return user, access_token, refresh_token
+
+
+async def rotate_refresh_token(
+    db: AsyncSession,
+    *,
+    raw_refresh_token: str,
+    user_agent: str | None = None,
+) -> tuple[User, str, str]:
+    """Validate an existing refresh token, revoke it, and issue a fresh pair.
+
+    Returns ``(user, new_access_token, new_refresh_token)``.
+
+    Raises ``InvalidCredentialsError`` when the token is not found,
+    already revoked, or expired.
+    """
+    now = datetime.now(timezone.utc)
+
+    result = await db.execute(
+        select(UserSession).where(UserSession.refresh_token == raw_refresh_token)
+    )
+    session = result.scalar_one_or_none()
+
+    if (
+        session is None
+        or session.revoked_at is not None
+        or session.expires_at <= now
+    ):
+        raise InvalidCredentialsError()
+
+    user = await get_user_by_id(db, session.user_id)
+    if user is None or not user.is_active:
+        raise InvalidCredentialsError()
+
+    # Verify token_version hasn't been bumped (e.g. password change).
+    # We don't check this against the JWT here (no JWT in refresh flow),
+    # but a revoked/expired session is already caught above.
+
+    # Revoke the consumed session (rotation — one-time use).
+    session.revoked_at = now
+    await db.flush()
+
+    # Issue a brand-new session pair.
+    access_token, new_refresh_token = await issue_session(
+        db, user, user_agent=user_agent
+    )
+    return user, access_token, new_refresh_token
 
 
 async def user_from_access_token(

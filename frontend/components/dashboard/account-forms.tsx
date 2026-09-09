@@ -21,9 +21,9 @@ import {
   type WorkspaceSettings,
 } from "@/lib/account-api";
 import { getApiErrorMessage } from "@/lib/api";
-import { saveAuthSession } from "@/lib/auth-storage";
+import { setAuthSession } from "@/lib/auth-storage";
 import { formatDate, formatRelativeTime } from "@/lib/format-money";
-import { rememberVerifiedToken, useAuth } from "@/lib/use-auth";
+import { useAuth } from "@/lib/use-auth";
 
 import { Corners } from "./ui";
 
@@ -137,7 +137,7 @@ export function ProfilePanel() {
       const updated = await updateProfile({ name: nextName, email: nextEmail });
       setProfile(updated);
       if (session) {
-        saveAuthSession({
+        setAuthSession({
           token: session.token,
           user: { id: updated.id, name: updated.name, email: updated.email },
         });
@@ -447,8 +447,7 @@ export function SecurityPanel() {
         new_password: newPassword,
       });
       if (session) {
-        rememberVerifiedToken(result.token);
-        saveAuthSession({
+        setAuthSession({
           token: result.token,
           user: {
             id: result.user.id,

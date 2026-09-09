@@ -6,6 +6,7 @@ SECRET_KEY. This module must never log passwords, hashes, or tokens.
 
 from __future__ import annotations
 
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
@@ -21,6 +22,7 @@ _hasher = PasswordHasher()
 
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_COOKIE = "cfo_access_token"
+REFRESH_TOKEN_COOKIE = "cfo_refresh_token"
 
 
 class InvalidAccessTokenError(Exception):
@@ -92,7 +94,19 @@ def decode_access_token(token: str) -> dict[str, Any]:
     return payload
 
 
+def create_refresh_token() -> str:
+    """Return a cryptographically secure opaque refresh token string."""
+
+    return secrets.token_urlsafe(48)
+
+
 def access_token_cookie_max_age() -> int:
-    """Cookie max-age in seconds."""
+    """Access token cookie max-age in seconds."""
 
     return settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+
+def refresh_token_cookie_max_age() -> int:
+    """Refresh token cookie max-age in seconds."""
+
+    return settings.REFRESH_TOKEN_EXPIRE_DAYS * 86_400

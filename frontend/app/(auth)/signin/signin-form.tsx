@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { fieldErrorsFromValidation, getApiErrorMessage } from "@/lib/api";
 import { signinRequest } from "@/lib/auth-api";
-import { saveAuthSession } from "@/lib/auth-storage";
+import { setAuthSession } from "@/lib/auth-storage";
 
 const signinSchema = z.object({
   email: z.email("Enter a valid email"),
@@ -77,7 +77,7 @@ function SigninFormInner() {
         password: result.data.password,
       });
 
-      saveAuthSession({
+      setAuthSession({
         user: response.data.user,
         token: response.data.token,
       });

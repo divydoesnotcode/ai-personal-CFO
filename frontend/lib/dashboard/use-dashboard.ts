@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import axios from "axios";
 
-import { clearAuthSession, getAccessToken } from "@/lib/auth-storage";
+import { getAccessToken } from "@/lib/auth-storage";
 import { getApiErrorMessage } from "@/lib/api";
 import { invalidateLedgerCache } from "@/lib/ledger-api";
 
@@ -63,14 +62,10 @@ async function loadDashboard(force = false) {
     })
     .catch((error: unknown) => {
       inflight = null;
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        inflight = null;
-        emit(emptyState);
-        invalidateLedgerCache();
-        clearAuthSession();
-        window.location.replace("/signin");
-        return;
-      }
+      // 401s are handled transparently by the Axios interceptor in api.ts
+      // (it will attempt a token refresh and retry). If the refresh also
+      // fails, the auth store is cleared and the useAuth redirect guard
+      // navigates to /signin. We just show the error here.
       emit({
         data: snapshot.data,
         loading: false,

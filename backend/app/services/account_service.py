@@ -224,7 +224,11 @@ async def change_password(
     current_password: str,
     new_password: str,
     user_agent: str | None,
-) -> str:
+) -> tuple[str, str]:
+    """Change password and issue a fresh token pair.
+
+    Returns ``(access_token, refresh_token)``.
+    """
     matched = await asyncio.to_thread(
         verify_password,
         current_password,
@@ -250,5 +254,5 @@ async def change_password(
         .values(revoked_at=now)
     )
     await db.flush()
-    token = await issue_session(db, user, user_agent=user_agent)
-    return token
+    access_token, refresh_token = await issue_session(db, user, user_agent=user_agent)
+    return access_token, refresh_token

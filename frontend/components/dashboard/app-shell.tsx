@@ -26,7 +26,7 @@ function sidebarCollapsed() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth({ requireAuth: true });
+  const { user, logout, status } = useAuth({ requireAuth: true });
   const { data } = useDashboard(Boolean(user));
   const reduced = useReducedMotion();
   const collapsed = useSyncExternalStore(
@@ -53,7 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.dispatchEvent(new Event(SIDEBAR_EVENT));
   }
 
-  if (!user) {
+  // Show a loading shell while the page-load auth check is in flight.
+  // This prevents a flash-redirect to /signin before the refresh token
+  // has been exchanged for a new access token.
+  if (status === "loading" || !user) {
     return (
       <div className="dash-root">
         <div className="dash-content-inner" style={{ paddingTop: "4rem" }}>
