@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 
+import { applyLocalDensity, readLocalDensity } from "@/lib/account-api";
 import { AskCfoProvider } from "@/lib/dashboard/ask-cfo";
 import { useDashboard } from "@/lib/dashboard/use-dashboard";
 import { useAuth } from "@/lib/use-auth";
@@ -26,7 +27,7 @@ function sidebarCollapsed() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth({ requireAuth: true });
-  const { data } = useDashboard("6M", Boolean(user));
+  const { data } = useDashboard(Boolean(user));
   const reduced = useReducedMotion();
   const collapsed = useSyncExternalStore(
     subscribeSidebar,
@@ -34,6 +35,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => false,
   );
   const [drawer, setDrawer] = useState(false);
+
+  useEffect(() => {
+    applyLocalDensity(readLocalDensity());
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = drawer ? "hidden" : "";

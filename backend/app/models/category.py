@@ -48,6 +48,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.models.base import BaseModel
 
 if TYPE_CHECKING:
+    from backend.app.models.budget import Budget
     from backend.app.models.transaction import Transaction
     from backend.app.models.user import User
 
@@ -167,6 +168,13 @@ class Category(BaseModel):
     transactions: Mapped[list["Transaction"]] = relationship(
         "Transaction",
         back_populates="category",
+    )
+
+    budgets: Mapped[list["Budget"]] = relationship(
+        "Budget",
+        back_populates="category",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     user: Mapped["User | None"] = relationship(

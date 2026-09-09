@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
 
-import { LedgerSubpage } from "@/components/dashboard/subpage";
+import { SecurityPanel } from "@/components/dashboard/account-forms";
 
 export const metadata: Metadata = { title: "Security — AI Personal CFO" };
 
 export default function SecurityPage() {
   return (
-    <LedgerSubpage
-      kicker="Access"
-      title="Security"
-      body="Sessions are stored on this machine. Expired tokens return you to sign-in. Password and session controls will expand here."
-    />
+    <div className="dash-content-inner">
+      <div className="dash-subpage">
+        <p className="cfo-kicker">Access</p>
+        <h1>Security</h1>
+        <p>
+          Change your password and manage devices. Signing out a session or
+          rotating the password invalidates that token immediately.
+        </p>
+        <SecurityPanel />
+      </div>
+    </div>
   );
 }

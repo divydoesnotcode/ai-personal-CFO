@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.config import settings
 from backend.app.models.user import User
+from backend.app.models.user_session import UserSession
 from backend.app.utils.security import (
     create_access_token,
     decode_access_token,
@@ -80,11 +83,37 @@ async def register_user(
     return user
 
 
+async def issue_session(
+    db: AsyncSession,
+    user: User,
+    *,
+    user_agent: str | None = None,
+) -> str:
+    now = datetime.now(timezone.utc)
+    session = UserSession(
+        user_id=user.id,
+        expires_at=now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        user_agent=(user_agent or "Unknown")[:255],
+    )
+    db.add(session)
+    await db.flush()
+    token = create_access_token(
+        user_id=user.id,
+        email=user.email,
+        token_version=user.token_version,
+        jti=session.id,
+    )
+    await db.commit()
+    await db.refresh(user)
+    return token
+
+
 async def authenticate_user(
     db: AsyncSession,
     *,
     email: str,
     password: str,
+    user_agent: str | None = None,
 ) -> tuple[User, str]:
     user = await get_user_by_email(db, email)
 
@@ -106,7 +135,7 @@ async def authenticate_user(
     if not matched:
         raise InvalidCredentialsError()
 
-    token = create_access_token(user_id=user.id, email=user.email)
+    token = await issue_session(db, user, user_agent=user_agent)
     return user, token
 
 
@@ -128,5 +157,32 @@ async def user_from_access_token(
 
     if user is None or not user.is_active:
         raise InvalidCredentialsError()
+
+    claimed_version = payload.get("ver", 1)
+    try:
+        version = int(claimed_version)
+    except (TypeError, ValueError):
+        raise InvalidCredentialsError() from None
+    if version != int(user.token_version):
+        raise InvalidCredentialsError()
+
+    jti_raw = payload.get("jti")
+    if jti_raw:
+        try:
+            jti = UUID(str(jti_raw))
+        except (ValueError, TypeError) as exc:
+            raise InvalidCredentialsError() from exc
+        result = await db.execute(
+            select(UserSession).where(UserSession.id == jti)
+        )
+        session = result.scalar_one_or_none()
+        now = datetime.now(timezone.utc)
+        if (
+            session is None
+            or session.user_id != user.id
+            or session.revoked_at is not None
+            or session.expires_at <= now
+        ):
+            raise InvalidCredentialsError()
 
     return user

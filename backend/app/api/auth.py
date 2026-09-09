@@ -23,6 +23,8 @@ from backend.app.services.auth_service import (
     register_user,
     user_from_access_token,
 )
+from backend.app.api.deps import extract_access_token, token_jti
+from backend.app.services.account_service import revoke_current_session
 from backend.app.utils.security import (
     ACCESS_TOKEN_COOKIE,
     access_token_cookie_max_age,
@@ -51,20 +53,6 @@ def _set_access_cookie(response: Response, token: str) -> None:
         max_age=access_token_cookie_max_age(),
         path="/",
     )
-
-
-def _extract_token(request: Request) -> str | None:
-    authorization = request.headers.get("Authorization", "")
-    if authorization.lower().startswith("bearer "):
-        token = authorization[7:].strip()
-        if token:
-            return token
-
-    cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
-    if cookie_token:
-        return cookie_token
-
-    return None
 
 
 @router.post(
@@ -118,6 +106,7 @@ async def signup(
 )
 async def signin(
     payload: SigninRequest,
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db_session),
 ) -> SigninResponse | JSONResponse:
@@ -126,6 +115,7 @@ async def signin(
             db,
             email=payload.email,
             password=payload.password,
+            user_agent=request.headers.get("user-agent"),
         )
     except InvalidCredentialsError:
         return _error(
@@ -158,7 +148,7 @@ async def me(
     request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> SignupResponse | JSONResponse:
-    token = _extract_token(request)
+    token = extract_access_token(request)
     if not token:
         return _error(
             status.HTTP_401_UNAUTHORIZED,
@@ -178,3 +168,54 @@ async def me(
         message="Authenticated",
         data=PublicUser.model_validate(user),
     )
+
+
+@router.post(
+    "/signout",
+    response_model=None,
+    responses={
+        401: {
+            "description": "Missing or invalid token",
+        },
+    },
+)
+async def signout(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, object] | JSONResponse:
+    token = extract_access_token(request)
+    if not token:
+        return _error(
+            status.HTTP_401_UNAUTHORIZED,
+            "Authentication required",
+        )
+
+    try:
+        await user_from_access_token(db, token)
+    except InvalidCredentialsError:
+        response.delete_cookie(
+            key=ACCESS_TOKEN_COOKIE,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=settings.ENVIRONMENT.lower() == "production",
+        )
+        return _error(
+            status.HTTP_401_UNAUTHORIZED,
+            "Authentication required",
+        )
+
+    await revoke_current_session(db, jti=token_jti(token))
+    response.delete_cookie(
+        key=ACCESS_TOKEN_COOKIE,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=settings.ENVIRONMENT.lower() == "production",
+    )
+    return {
+        "success": True,
+        "message": "Signed out",
+        "data": {"signedOut": True},
+    }

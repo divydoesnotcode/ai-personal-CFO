@@ -11,6 +11,7 @@ Do not place business logic in this file.
 
 from backend.app.models.account import Account, AccountType
 from backend.app.models.base import Base, BaseModel
+from backend.app.models.budget import Budget
 from backend.app.models.category import Category
 from backend.app.models.financial_goal import (
     FinancialGoal,
@@ -23,6 +24,8 @@ from backend.app.models.transaction import (
     TransactionType,
 )
 from backend.app.models.user import User
+from backend.app.models.user_preference import UserPreference
+from backend.app.models.user_session import UserSession
 
 __all__ = [
     "Base",
@@ -34,7 +37,10 @@ __all__ = [
     "TransactionStatus",
     "TransactionType",
     "Category",
+    "Budget",
     "FinancialGoal",
     "GoalStatus",
     "GoalType",
+    "UserPreference",
+    "UserSession",
 ]

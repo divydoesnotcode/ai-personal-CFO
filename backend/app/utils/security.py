@@ -42,7 +42,13 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(*, user_id: UUID, email: str) -> str:
+def create_access_token(
+    *,
+    user_id: UUID,
+    email: str,
+    token_version: int = 1,
+    jti: UUID | None = None,
+) -> str:
     """Create a signed JWT for an authenticated user."""
 
     now = datetime.now(timezone.utc)
@@ -51,9 +57,12 @@ def create_access_token(*, user_id: UUID, email: str) -> str:
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "email": email,
+        "ver": int(token_version),
         "iat": int(now.timestamp()),
         "exp": int(expires.timestamp()),
     }
+    if jti is not None:
+        payload["jti"] = str(jti)
 
     return jwt.encode(
         payload,

@@ -43,7 +43,10 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from backend.app.api.account import router as account_router
 from backend.app.api.auth import router as auth_router
+from backend.app.api.dashboard import router as dashboard_router
+from backend.app.api.ledger import router as ledger_router
 from backend.app.config import settings
 
 # Database Connection
@@ -278,6 +281,9 @@ def create_application() -> FastAPI:
     # -------------------------------------------------------------------------
 
     application.include_router(auth_router)
+    application.include_router(dashboard_router)
+    application.include_router(ledger_router)
+    application.include_router(account_router)
 
     return application
 

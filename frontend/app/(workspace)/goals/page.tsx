@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 
-import { LedgerSubpage } from "@/components/dashboard/subpage";
+import { GoalComposer } from "@/components/dashboard/ledger-forms";
 
 export const metadata: Metadata = { title: "Goals — AI Personal CFO" };
 
 export default function GoalsPage() {
   return (
-    <LedgerSubpage
-      kicker="Targets"
-      title="Financial Goals"
-      body="Name the target, the amount, and the date. Progress on the dashboard stays honest to the ledger."
-      action="Add a goal"
-    />
+    <div className="dash-content-inner">
+      <div className="dash-subpage">
+        <p className="cfo-kicker">Targets</p>
+        <h1>Financial Goals</h1>
+        <p>Name the target, the amount, and the date. The dashboard tracks whether you are on pace.</p>
+        <GoalComposer />
+      </div>
+    </div>
   );
 }
