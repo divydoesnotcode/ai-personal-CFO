@@ -52,7 +52,15 @@ function FormStatus({
   );
 }
 
-export function TransactionComposer() {
+export function TransactionComposer({
+  onSuccess,
+  onCancel,
+  redirectToDashboard = true,
+}: {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  redirectToDashboard?: boolean;
+} = {}) {
   const router = useRouter();
   const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
   const [categories, setCategories] = useState<LedgerCategory[]>([]);
@@ -112,7 +120,11 @@ export function TransactionComposer() {
       setMessage("Transaction recorded");
       setAmount("");
       setDescription("");
-      router.push("/dashboard");
+      if (onSuccess) {
+        onSuccess();
+      } else if (redirectToDashboard) {
+        router.push("/dashboard");
+      }
     } catch (error) {
       setTone("error");
       setMessage(getApiErrorMessage(error, "Unable to record the transaction"));
@@ -126,7 +138,18 @@ export function TransactionComposer() {
       <Corners accent />
       <div className="cfo-panel-head">
         <strong>Add a transaction</strong>
-        <span>LEDGER</span>
+        {onCancel ? (
+          <button
+            type="button"
+            className="dash-icon-btn"
+            aria-label="Close dialog"
+            onClick={onCancel}
+          >
+            ✕
+          </button>
+        ) : (
+          <span>LEDGER</span>
+        )}
       </div>
       <form className="cfo-form dash-ledger-form" onSubmit={onSubmit}>
         <Field label="Amount (₹)">
