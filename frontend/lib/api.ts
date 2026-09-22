@@ -94,6 +94,8 @@ api.interceptors.response.use(
     const isAuthEndpoint =
       url.includes("/auth/refresh") ||
       url.includes("/auth/signin") ||
+      url.includes("/auth/signup") ||
+      url.includes("/auth/signout") ||
       url.includes("/auth/me");
 
     if (is401 && !isAuthEndpoint && originalRequest && !originalRequest._retry) {
@@ -138,6 +140,12 @@ export function getApiErrorMessage(
 
   if (!axiosError.response) {
     return "Network error — identity service unreachable";
+  }
+
+  // Never render untrusted server failures directly. Production services may
+  // include infrastructure or implementation details in 5xx responses.
+  if (axiosError.response.status >= 500) {
+    return fallback;
   }
 
   const data = axiosError.response.data;

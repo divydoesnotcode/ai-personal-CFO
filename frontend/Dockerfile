@@ -10,8 +10,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+RUN npm run build
 
 EXPOSE 3000
 
-# Reinstall from the lockfile so the named node_modules volume stays in sync.
-CMD ["sh", "-c", "npm ci && npm run dev -- --hostname 0.0.0.0 --port 3000"]
+CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0", "--port", "3000"]

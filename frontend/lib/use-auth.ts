@@ -27,6 +27,7 @@ import { invalidateLedgerCache } from "./ledger-api";
 let _initialized = false;
 /** De-duplicates the single page-load check across simultaneous callers. */
 let _initPromise: Promise<void> | null = null;
+const AUTH_LOGOUT_EVENT = "cfo.auth.logout";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -137,16 +138,21 @@ export function useAuth(options: UseAuthOptions = {}) {
 
   // ---- Actions ----
 
-  const endSession = useCallback(() => {
+  const endSession = useCallback((broadcast = true) => {
     // Reset the init flag so the next page load re-checks.
     _initialized = false;
     clearClientCaches();
+    if (broadcast) {
+      // Notify other tabs without persisting any credential or user data.
+      window.localStorage.setItem(AUTH_LOGOUT_EVENT, String(Date.now()));
+    }
     router.push("/signin");
   }, [router]);
 
   const logout = useCallback(() => {
-    void signOutRequest().catch(() => undefined);
-    endSession();
+    return signOutRequest().then(() => {
+      endSession();
+    });
   }, [endSession]);
 
   // ---- Page-load init ----
@@ -154,6 +160,16 @@ export function useAuth(options: UseAuthOptions = {}) {
   useEffect(() => {
     void ensureInitialized();
   }, []);
+
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (event.key !== AUTH_LOGOUT_EVENT) return;
+      endSession(false);
+    }
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [endSession]);
 
   // ---- Redirect guard ----
 

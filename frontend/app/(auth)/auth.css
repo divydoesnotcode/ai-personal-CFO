@@ -270,13 +270,13 @@
   font-size:      0.95rem;
   letter-spacing: 0.01em;
   outline:        none;
-  transition:     border-color 160ms ease, background-color 160ms ease;
+  transition:     border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
 .auth-input--toggle  { padding-right: 2.75rem; }
 .auth-input::placeholder { color: var(--auth-ink-faint); }
 .auth-input:hover    { border-color: color-mix(in srgb, var(--auth-ink) 45%, transparent); }
-.auth-input:focus    { border-color: var(--auth-accent); background: var(--auth-accent-soft); }
+.auth-input:focus    { border-color: var(--auth-accent); background: var(--auth-accent-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-accent) 12%, transparent); }
 .auth-input[aria-invalid="true"]        { border-color: var(--auth-danger); }
 .auth-input[aria-invalid="true"]:focus  { background: color-mix(in srgb, var(--auth-danger) 12%, transparent); }
 
@@ -293,6 +293,7 @@
   border:      0;
   color:       var(--auth-ink-dim);
   cursor:      pointer;
+  transition:  color 160ms ease;
 }
 
 .auth-toggle:hover,
@@ -331,11 +332,11 @@
   letter-spacing:  0.2em;
   text-transform:  uppercase;
   cursor:          pointer;
-  transition:      background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition:      background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 90ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .auth-submit:hover { background: var(--auth-ink); color: var(--auth-bg); }
-.auth-submit:active { transform: translateY(1px); }
+.auth-submit:active { transform: translateY(1px) scale(0.985); }
 
 .auth-submit:focus-visible {
   outline:        1px solid var(--auth-accent);
@@ -362,7 +363,12 @@
 .auth-status--error { color: var(--auth-danger); }
 
 .auth-alt { margin: 0.15rem 0 0; text-align: left; font-size: 0.875rem; color: var(--auth-ink-dim); }
-.auth-alt a { color: var(--auth-ink); text-decoration: none; border-bottom: 1px solid var(--auth-line-strong); }
+.auth-alt a {
+  color: var(--auth-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--auth-line-strong);
+  transition: border-bottom-color 160ms ease, color 160ms ease;
+}
 .auth-alt a:hover,
 .auth-alt a:focus-visible { border-bottom-color: var(--auth-accent); }
 .auth-alt a:focus-visible  { outline: 1px solid var(--auth-accent); outline-offset: 3px; }
@@ -417,8 +423,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-input,
-  .auth-submit    { transition: none; }
   .auth-submit:active { transform: none; }
   .auth-pulse     { animation: none; }
 }

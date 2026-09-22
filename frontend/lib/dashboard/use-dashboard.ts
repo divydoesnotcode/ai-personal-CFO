@@ -12,11 +12,17 @@ import type { DashboardPayload } from "./types";
 type DashboardState = {
   data: DashboardPayload | null;
   loading: boolean;
+  refreshing: boolean;
   error: string | null;
 };
 
 const listeners = new Set<() => void>();
-const emptyState: DashboardState = { data: null, loading: false, error: null };
+const emptyState: DashboardState = {
+  data: null,
+  loading: false,
+  refreshing: false,
+  error: null,
+};
 let snapshot: DashboardState = emptyState;
 let inflight: Promise<void> | null = null;
 
@@ -52,13 +58,14 @@ async function loadDashboard(force = false) {
   emit({
     data: snapshot.data,
     loading: snapshot.data == null,
+    refreshing: snapshot.data != null,
     error: null,
   });
 
   inflight = fetchDashboard()
     .then((payload) => {
       inflight = null;
-      emit({ data: payload, loading: false, error: null });
+      emit({ data: payload, loading: false, refreshing: false, error: null });
     })
     .catch((error: unknown) => {
       inflight = null;
@@ -69,6 +76,7 @@ async function loadDashboard(force = false) {
       emit({
         data: snapshot.data,
         loading: false,
+        refreshing: false,
         error: getApiErrorMessage(error, "Unable to load the dashboard"),
       });
     });
@@ -99,6 +107,7 @@ export function useDashboard(enabled = true) {
   return {
     data: state.data,
     loading: state.loading,
+    refreshing: state.refreshing,
     error: state.error,
     retry,
   };

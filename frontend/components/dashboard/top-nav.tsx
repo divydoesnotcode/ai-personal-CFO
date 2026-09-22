@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Bell, LogOut, Menu, Search, X } from "lucide-react";
 
 import { PRIMARY_NAV, PROFILE_MENU, SECONDARY_NAV } from "@/lib/dashboard/nav";
@@ -26,6 +27,7 @@ export function TopNav({
   onLogout,
 }: TopNavProps) {
   const { openPanel } = useAskCfo();
+  const reduced = useReducedMotion();
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -34,7 +36,10 @@ export function TopNav({
   const rootRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(query.trim().toLowerCase()), 180);
+    const timer = window.setTimeout(
+      () => setDebounced(query.trim().toLowerCase()),
+      180,
+    );
     return () => window.clearTimeout(timer);
   }, [query]);
 
@@ -73,6 +78,18 @@ export function TopNav({
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 
+  const overlayMotion = reduced
+    ? {}
+    : {
+        initial: { opacity: 0, y: -4 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -3 },
+        transition: {
+          duration: 0.16,
+          ease: [0.22, 1, 0.36, 1] as const,
+        },
+      };
+
   return (
     <header className="dash-top" ref={rootRef}>
       <div className="dash-top-left">
@@ -110,45 +127,59 @@ export function TopNav({
           >
             {searchOpen ? <X size={15} /> : <Search size={15} />}
           </button>
-          {searchOpen ? (
-            <div className="dash-search-overlay" role="search">
-              <input
-                className="cfo-input"
-                autoFocus
-                placeholder="Search the ledger…"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label="Search"
-              />
-              <div className="dash-menu" style={{ position: "relative", right: 0, top: 8, minWidth: 0 }}>
-                {results.length === 0 ? (
-                  <p className="dash-notify-item">
-                    <strong>No matches</strong>
-                    <span>Try a destination name.</span>
-                  </p>
-                ) : (
-                  results.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setSearchOpen(false)}
-                    >
-                      {item.label}
-                    </Link>
-                  ))
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchOpen(false);
-                    openPanel(query);
+          <AnimatePresence initial={false}>
+            {searchOpen ? (
+              <motion.div
+                className="dash-search-overlay"
+                role="search"
+                {...overlayMotion}
+              >
+                <input
+                  className="cfo-input"
+                  autoFocus
+                  placeholder="Search the ledger…"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  aria-label="Search"
+                />
+                <div
+                  className="dash-menu"
+                  style={{
+                    position: "relative",
+                    right: 0,
+                    top: 8,
+                    minWidth: 0,
                   }}
                 >
-                  Ask your CFO
-                </button>
-              </div>
-            </div>
-          ) : null}
+                  {results.length === 0 ? (
+                    <p className="dash-notify-item">
+                      <strong>No matches</strong>
+                      <span>Try a destination name.</span>
+                    </p>
+                  ) : (
+                    results.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setSearchOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                    ))
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchOpen(false);
+                      openPanel(query);
+                    }}
+                  >
+                    Ask your CFO
+                  </button>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
 
         <div style={{ position: "relative" }}>
@@ -166,24 +197,33 @@ export function TopNav({
             <Bell size={15} aria-hidden="true" />
             {notifications.length > 0 ? <span className="dash-dot" /> : null}
           </button>
-          {notifyOpen ? (
-            <div className="dash-menu" role="menu" aria-label="Notifications">
-              {notifications.length === 0 ? (
-                <div className="dash-notify-item">
-                  <strong>Quiet</strong>
-                  <p>No financial events need attention right now.</p>
-                </div>
-              ) : (
-                notifications.map((item) => (
-                  <div key={item.id} className="dash-notify-item">
-                    <strong>{item.title}</strong>
-                    <p>{item.body}</p>
-                    <time dateTime={item.at}>{formatRelativeTime(item.at)}</time>
+          <AnimatePresence initial={false}>
+            {notifyOpen ? (
+              <motion.div
+                className="dash-menu"
+                role="menu"
+                aria-label="Notifications"
+                {...overlayMotion}
+              >
+                {notifications.length === 0 ? (
+                  <div className="dash-notify-item">
+                    <strong>Quiet</strong>
+                    <p>No financial events need attention right now.</p>
                   </div>
-                ))
-              )}
-            </div>
-          ) : null}
+                ) : (
+                  notifications.map((item) => (
+                    <div key={item.id} className="dash-notify-item">
+                      <strong>{item.title}</strong>
+                      <p>{item.body}</p>
+                      <time dateTime={item.at}>
+                        {formatRelativeTime(item.at)}
+                      </time>
+                    </div>
+                  ))
+                )}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
 
         <div style={{ position: "relative" }}>
@@ -200,26 +240,33 @@ export function TopNav({
           >
             <span className="dash-avatar">{initials || "CF"}</span>
           </button>
-          {profileOpen ? (
-            <div className="dash-menu" role="menu" aria-label="Profile">
-              <div className="dash-menu-head">
-                <strong>{user?.name ?? "Ledger identity"}</strong>
-                <span>{user?.email}</span>
-              </div>
-              {PROFILE_MENU.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setProfileOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              ))}
-              <button type="button" onClick={onLogout}>
-                Logout <LogOut size={12} aria-hidden="true" />
-              </button>
-            </div>
-          ) : null}
+          <AnimatePresence initial={false}>
+            {profileOpen ? (
+              <motion.div
+                className="dash-menu"
+                role="menu"
+                aria-label="Profile"
+                {...overlayMotion}
+              >
+                <div className="dash-menu-head">
+                  <strong>{user?.name ?? "Ledger identity"}</strong>
+                  <span>{user?.email}</span>
+                </div>
+                {PROFILE_MENU.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+                <button type="button" onClick={onLogout}>
+                  Logout <LogOut size={12} aria-hidden="true" />
+                </button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
     </header>
