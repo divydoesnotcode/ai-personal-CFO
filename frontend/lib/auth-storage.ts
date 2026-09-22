@@ -1,3 +1,14 @@
+/**
+ * In-memory auth session store.
+ *
+ * The access token is NEVER written to localStorage or sessionStorage.
+ * It lives only in this module-level variable and is lost on page refresh.
+ * Page-refresh recovery is handled by calling GET /auth/me (which reads
+ * the HttpOnly access-token cookie that the browser sends automatically).
+ *
+ * This module is the single source of truth for the client-side auth state.
+ */
+
 export type AuthUser = {
   id: string;
   name: string;
@@ -6,83 +17,73 @@ export type AuthUser = {
 
 export type AuthSession = {
   user: AuthUser;
+  /** Short-lived JWT held in memory — never persisted to storage. */
   token: string;
 };
 
-const STORAGE_KEY = "cfo.auth";
-const listeners = new Set<() => void>();
-let cachedRaw: string | null | undefined;
-let cachedSession: AuthSession | null = null;
+export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
-function canUseStorage(): boolean {
-  return typeof window !== "undefined";
+// ---------------------------------------------------------------------------
+// In-memory state
+// ---------------------------------------------------------------------------
+
+let _session: AuthSession | null = null;
+let _status: AuthStatus = "loading";
+
+const _listeners = new Set<() => void>();
+
+function _notify(): void {
+  _listeners.forEach((fn) => fn());
 }
 
-function notifyAuthListeners() {
-  listeners.forEach((listener) => listener());
-}
+// ---------------------------------------------------------------------------
+// External store interface (for useSyncExternalStore)
+// ---------------------------------------------------------------------------
 
 export function subscribeAuth(listener: () => void): () => void {
-  listeners.add(listener);
+  _listeners.add(listener);
   return () => {
-    listeners.delete(listener);
+    _listeners.delete(listener);
   };
 }
 
-export function saveAuthSession(session: AuthSession): void {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  const raw = JSON.stringify(session);
-  window.localStorage.setItem(STORAGE_KEY, raw);
-  cachedRaw = raw;
-  cachedSession = session;
-  notifyAuthListeners();
+/** Snapshot of the current session (null while loading or unauthenticated). */
+export function getAuthSession(): AuthSession | null {
+  return _session;
 }
 
-export function loadAuthSession(): AuthSession | null {
-  if (!canUseStorage()) {
-    return null;
-  }
+/** Snapshot of the current auth status. */
+export function getAuthStatus(): AuthStatus {
+  return _status;
+}
 
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (raw === cachedRaw) {
-    return cachedSession;
-  }
+// ---------------------------------------------------------------------------
+// Mutators
+// ---------------------------------------------------------------------------
 
-  cachedRaw = raw;
-
-  if (!raw) {
-    cachedSession = null;
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed?.token || !parsed?.user?.id || !parsed.user.email) {
-      cachedSession = null;
-      return null;
-    }
-    cachedSession = parsed;
-    return parsed;
-  } catch {
-    cachedSession = null;
-    return null;
-  }
+export function setAuthSession(session: AuthSession): void {
+  _session = session;
+  _status = "authenticated";
+  _notify();
 }
 
 export function clearAuthSession(): void {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  window.localStorage.removeItem(STORAGE_KEY);
-  cachedRaw = null;
-  cachedSession = null;
-  notifyAuthListeners();
+  _session = null;
+  _status = "unauthenticated";
+  _notify();
 }
 
+/** Called only during auth initialization — marks loading as done without a session. */
+export function markUnauthenticated(): void {
+  _session = null;
+  _status = "unauthenticated";
+  _notify();
+}
+
+// ---------------------------------------------------------------------------
+// Convenience accessor used by the Axios request interceptor
+// ---------------------------------------------------------------------------
+
 export function getAccessToken(): string | null {
-  return loadAuthSession()?.token ?? null;
+  return _session?.token ?? null;
 }

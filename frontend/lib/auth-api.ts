@@ -12,6 +12,16 @@ type SigninResponse = {
   message: string;
   data: {
     user: AuthUser;
+    /** Short-lived JWT — store in memory, never in localStorage. */
+    token: string;
+  };
+};
+
+type RefreshResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    user: AuthUser;
     token: string;
   };
 };
@@ -30,5 +40,10 @@ export async function signinRequest(payload: {
   password: string;
 }): Promise<SigninResponse> {
   const response = await api.post<SigninResponse>("/api/auth/signin", payload);
+  return response.data;
+}
+
+export async function refreshRequest(): Promise<RefreshResponse> {
+  const response = await api.post<RefreshResponse>("/api/auth/refresh", null);
   return response.data;
 }

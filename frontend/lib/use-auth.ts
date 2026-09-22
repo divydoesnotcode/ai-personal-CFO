@@ -7,11 +7,112 @@ import axios from "axios";
 import { api } from "./api";
 import {
   clearAuthSession,
-  loadAuthSession,
-  saveAuthSession,
+  getAuthSession,
+  getAuthStatus,
+  markUnauthenticated,
+  setAuthSession,
   subscribeAuth,
   type AuthSession,
+  type AuthStatus,
 } from "./auth-storage";
+import { invalidateAccountCache, signOutRequest } from "./account-api";
+import { invalidateDashboardCache } from "./dashboard/use-dashboard";
+import { invalidateLedgerCache } from "./ledger-api";
+
+// ---------------------------------------------------------------------------
+// Module-level singletons (survive re-renders, reset on logout)
+// ---------------------------------------------------------------------------
+
+/** Whether the page-load auth check has completed (success or failure). */
+let _initialized = false;
+/** De-duplicates the single page-load check across simultaneous callers. */
+let _initPromise: Promise<void> | null = null;
+const AUTH_LOGOUT_EVENT = "cfo.auth.logout";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function clearClientCaches(): void {
+  clearAuthSession();
+  invalidateDashboardCache();
+  invalidateLedgerCache();
+  invalidateAccountCache();
+}
+
+// ---------------------------------------------------------------------------
+// Auth initializer
+// ---------------------------------------------------------------------------
+
+/**
+ * Page-load session restore.
+ *
+ * Strategy (called exactly once per page lifetime):
+ *
+ * 1. If the in-memory token is already set (e.g. login happened in this tab
+ *    before this component mounted), mark initialized and return immediately.
+ *
+ * 2. Otherwise call POST /auth/refresh.
+ *    - The browser automatically sends the ``cfo_refresh_token`` HttpOnly
+ *      cookie (path "/api/auth").
+ *    - On success: receive a fresh access token + rotated refresh cookie.
+ *      Store the access token in memory.
+ *    - On 401: the refresh token is absent, expired, or revoked.
+ *      Mark the user as unauthenticated.
+ *
+ * We skip GET /auth/me on page load and go straight to /auth/refresh because:
+ *   a) /auth/me only returns PublicUser — it doesn't give us a token to hold
+ *      in memory for Bearer-header requests.
+ *   b) If the access-token cookie is still valid, /auth/refresh still works
+ *      fine (it uses the refresh token cookie, not the access cookie).
+ *   c) This is one request instead of potentially two.
+ *
+ * GET /auth/me is still available for the Axios request interceptor to use
+ * after the in-memory token has been established.
+ */
+function ensureInitialized(): Promise<void> {
+  if (_initialized) return Promise.resolve();
+  if (getAuthSession() !== null) {
+    _initialized = true;
+    return Promise.resolve();
+  }
+  if (_initPromise) return _initPromise;
+
+  type RefreshBody = {
+    data: { token: string; user: { id: string; name: string; email: string } };
+  };
+
+  _initPromise = api
+    .post<RefreshBody>("/api/auth/refresh", null)
+    .then((res) => {
+      const { token, user } = res.data.data;
+      if (token && user?.id && user?.email) {
+        setAuthSession({ token, user });
+      } else {
+        markUnauthenticated();
+      }
+    })
+    .catch((error: unknown) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        // No valid refresh token — user is genuinely unauthenticated.
+        markUnauthenticated();
+      } else {
+        // Network error or server error: fail open so a transient backend
+        // outage doesn't lock users out on refresh.
+        markUnauthenticated();
+      }
+    })
+    .finally(() => {
+      _initialized = true;
+      _initPromise = null;
+    });
+
+  return _initPromise;
+}
+
+// ---------------------------------------------------------------------------
+// useAuth hook
+// ---------------------------------------------------------------------------
 
 type UseAuthOptions = {
   requireAuth?: boolean;
@@ -21,64 +122,78 @@ type UseAuthOptions = {
 export function useAuth(options: UseAuthOptions = {}) {
   const { requireAuth = false, redirectTo = "/signin" } = options;
   const router = useRouter();
-  const session = useSyncExternalStore(
+
+  // Subscribe to the in-memory store via React's external store primitive.
+  const session = useSyncExternalStore<AuthSession | null>(
     subscribeAuth,
-    loadAuthSession,
+    getAuthSession,
     () => null,
   );
 
-  const logout = useCallback(() => {
-    clearAuthSession();
+  const status = useSyncExternalStore<AuthStatus>(
+    subscribeAuth,
+    getAuthStatus,
+    () => "loading" as AuthStatus,
+  );
+
+  // ---- Actions ----
+
+  const endSession = useCallback((broadcast = true) => {
+    // Reset the init flag so the next page load re-checks.
+    _initialized = false;
+    clearClientCaches();
+    if (broadcast) {
+      // Notify other tabs without persisting any credential or user data.
+      window.localStorage.setItem(AUTH_LOGOUT_EVENT, String(Date.now()));
+    }
     router.push("/signin");
-    router.refresh();
   }, [router]);
 
+  const logout = useCallback(() => {
+    return signOutRequest().then(() => {
+      endSession();
+    });
+  }, [endSession]);
+
+  // ---- Page-load init ----
+
   useEffect(() => {
-    if (!session) {
-      if (requireAuth) {
-        router.replace(redirectTo);
-      }
-      return;
+    void ensureInitialized();
+  }, []);
+
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (event.key !== AUTH_LOGOUT_EVENT) return;
+      endSession(false);
     }
 
-    let cancelled = false;
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [endSession]);
 
-    api
-      .get("/api/auth/me")
-      .then((response) => {
-        if (cancelled) return;
-        const user = response.data?.data;
-        if (user?.id && user?.email) {
-          const next: AuthSession = {
-            token: session.token,
-            user: {
-              id: user.id,
-              name: user.name ?? session.user.name,
-              email: user.email,
-            },
-          };
-          if (
-            next.user.name !== session.user.name ||
-            next.user.email !== session.user.email
-          ) {
-            saveAuthSession(next);
-          }
-        }
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
-          clearAuthSession();
-          if (requireAuth) {
-            router.replace(redirectTo);
-          }
-        }
-      });
+  // ---- Redirect guard ----
 
-    return () => {
-      cancelled = true;
-    };
-  }, [redirectTo, requireAuth, router, session]);
+  useEffect(() => {
+    // KEY FIX: never redirect while auth is still being determined.
+    if (status === "loading") return;
 
-  return { session, ready: true, logout, user: session?.user ?? null };
+    if (requireAuth && status === "unauthenticated") {
+      router.replace(redirectTo);
+    }
+  }, [status, requireAuth, redirectTo, router]);
+
+  return {
+    session,
+    status,
+    /**
+     * True once the page-load auth check has completed.
+     * @deprecated Prefer checking `status !== 'loading'` directly.
+     */
+    ready: status !== "loading",
+    logout,
+    endSession,
+    user: session?.user ?? null,
+  };
 }
+
+export { type AuthStatus };

@@ -8,7 +8,8 @@ import { z } from "zod";
 
 import { fieldErrorsFromValidation, getApiErrorMessage } from "@/lib/api";
 import { signinRequest } from "@/lib/auth-api";
-import { saveAuthSession } from "@/lib/auth-storage";
+import { POST_LOGIN_GUARD_PENDING } from "@/lib/auth-navigation";
+import { setAuthSession } from "@/lib/auth-storage";
 
 const signinSchema = z.object({
   email: z.email("Enter a valid email"),
@@ -77,11 +78,14 @@ function SigninFormInner() {
         password: result.data.password,
       });
 
-      saveAuthSession({
+      setAuthSession({
         user: response.data.user,
         token: response.data.token,
       });
 
+      // The workspace consumes this once to install a Back-navigation guard.
+      // It contains no session data and is scoped to this browser tab.
+      window.sessionStorage.setItem(POST_LOGIN_GUARD_PENDING, "1");
       setStatus("Signed in. Redirecting…");
       setStatusTone("ok");
       router.push("/dashboard");

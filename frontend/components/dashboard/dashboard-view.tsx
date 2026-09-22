@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
 import { useAskCfo } from "@/lib/dashboard/ask-cfo";
+import type { CashFlowRange } from "@/lib/dashboard/types";
 import { useDashboard } from "@/lib/dashboard/use-dashboard";
 import { useAuth } from "@/lib/use-auth";
 import {
@@ -42,7 +44,8 @@ function fade(index: number, reduced: boolean | null) {
 export function DashboardView() {
   const { user } = useAuth();
   const { openPanel } = useAskCfo();
-  const { data, loading, error, range, setRange, retry } = useDashboard();
+  const { data, loading, error, retry } = useDashboard();
+  const [range, setRange] = useState<CashFlowRange>("6M");
   const reduced = useReducedMotion();
 
   const name = firstName(user?.name ?? "");

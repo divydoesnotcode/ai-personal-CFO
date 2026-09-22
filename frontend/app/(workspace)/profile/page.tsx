@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 
-import { LedgerSubpage } from "@/components/dashboard/subpage";
+import { ProfilePanel } from "@/components/dashboard/account-forms";
 
 export const metadata: Metadata = { title: "Profile — AI Personal CFO" };
 
 export default function ProfilePage() {
   return (
-    <LedgerSubpage
-      kicker="Identity"
-      title="Profile"
-      body="Your name and email come from the signed-in ledger identity. Additional profile fields will not be stored in the URL."
-    />
+    <div className="dash-content-inner">
+      <div className="dash-subpage">
+        <p className="cfo-kicker">Identity</p>
+        <h1>Profile</h1>
+        <p>Name and email are the ledger identity. Changes apply across the workspace immediately.</p>
+        <ProfilePanel />
+      </div>
+    </div>
   );
 }

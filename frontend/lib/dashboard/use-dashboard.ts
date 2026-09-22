@@ -1,103 +1,114 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import axios from "axios";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
-import { clearAuthSession } from "@/lib/auth-storage";
+import { getAccessToken } from "@/lib/auth-storage";
 import { getApiErrorMessage } from "@/lib/api";
+import { invalidateLedgerCache } from "@/lib/ledger-api";
 
 import { fetchDashboard } from "./api";
-import type { CashFlowRange, DashboardPayload } from "./types";
+import type { DashboardPayload } from "./types";
 
 type DashboardState = {
   data: DashboardPayload | null;
   loading: boolean;
+  refreshing: boolean;
   error: string | null;
-  range: CashFlowRange;
 };
 
-const cache = new Map<CashFlowRange, DashboardPayload>();
-const inflight = new Map<CashFlowRange, Promise<DashboardPayload>>();
+const listeners = new Set<() => void>();
+const emptyState: DashboardState = {
+  data: null,
+  loading: false,
+  refreshing: false,
+  error: null,
+};
+let snapshot: DashboardState = emptyState;
+let inflight: Promise<void> | null = null;
 
-export function useDashboard(initialRange: CashFlowRange = "6M", enabled = true) {
-  const [state, setState] = useState<DashboardState>({
-    data: cache.get(initialRange) ?? null,
-    loading: !cache.has(initialRange),
+function emit(next: DashboardState) {
+  snapshot = next;
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot() {
+  return snapshot;
+}
+
+function getServerSnapshot(): DashboardState {
+  return emptyState;
+}
+
+async function loadDashboard(force = false) {
+  if (!force && snapshot.data && !snapshot.error) {
+    return;
+  }
+  if (inflight) {
+    await inflight;
+    return;
+  }
+
+  emit({
+    data: snapshot.data,
+    loading: snapshot.data == null,
+    refreshing: snapshot.data != null,
     error: null,
-    range: initialRange,
   });
-  const rangeRef = useRef(initialRange);
 
-  const load = useCallback(async (range: CashFlowRange, force = false) => {
-    rangeRef.current = range;
-    if (!force && cache.has(range)) {
-      setState({
-        data: cache.get(range) ?? null,
+  inflight = fetchDashboard()
+    .then((payload) => {
+      inflight = null;
+      emit({ data: payload, loading: false, refreshing: false, error: null });
+    })
+    .catch((error: unknown) => {
+      inflight = null;
+      // 401s are handled transparently by the Axios interceptor in api.ts
+      // (it will attempt a token refresh and retry). If the refresh also
+      // fails, the auth store is cleared and the useAuth redirect guard
+      // navigates to /signin. We just show the error here.
+      emit({
+        data: snapshot.data,
         loading: false,
-        error: null,
-        range,
-      });
-      return;
-    }
-
-    setState((current) => ({
-      ...current,
-      loading: current.data == null,
-      error: null,
-      range,
-    }));
-
-    try {
-      let request = inflight.get(range);
-      if (!request) {
-        request = fetchDashboard(range);
-        inflight.set(range, request);
-      }
-      const payload = await request;
-      inflight.delete(range);
-      cache.set(range, payload);
-      if (rangeRef.current !== range) return;
-      setState({ data: payload, loading: false, error: null, range });
-    } catch (error) {
-      inflight.delete(range);
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        clearAuthSession();
-        window.location.replace("/signin");
-        return;
-      }
-      if (rangeRef.current !== range) return;
-      setState((current) => ({
-        ...current,
-        loading: false,
+        refreshing: false,
         error: getApiErrorMessage(error, "Unable to load the dashboard"),
-        range,
-      }));
-    }
-  }, []);
+      });
+    });
+
+  await inflight;
+}
+
+export function invalidateDashboardCache() {
+  inflight = null;
+  emit(emptyState);
+  if (listeners.size > 0 && getAccessToken()) {
+    void loadDashboard(true);
+  }
+}
+
+export function useDashboard(enabled = true) {
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
     if (!enabled) return;
-    void load(initialRange);
-  }, [enabled, initialRange, load]);
-
-  const setRange = useCallback(
-    (range: CashFlowRange) => {
-      void load(range);
-    },
-    [load],
-  );
+    void loadDashboard();
+  }, [enabled]);
 
   const retry = useCallback(() => {
-    cache.delete(rangeRef.current);
-    void load(rangeRef.current, true);
-  }, [load]);
+    void loadDashboard(true);
+  }, []);
 
   return {
     data: state.data,
     loading: state.loading,
+    refreshing: state.refreshing,
     error: state.error,
-    range: state.range,
-    setRange,
     retry,
   };
 }

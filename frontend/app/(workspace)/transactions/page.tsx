@@ -1,16 +1,21 @@
 import type { Metadata } from "next";
 
-import { LedgerSubpage } from "@/components/dashboard/subpage";
+import { TransactionComposer } from "@/components/dashboard/ledger-forms";
 
 export const metadata: Metadata = { title: "Transactions — AI Personal CFO" };
 
 export default function TransactionsPage() {
   return (
-    <LedgerSubpage
-      kicker="Ledger"
-      title="Transactions"
-      body="Import or add movements here. The dashboard reads this ledger for cash flow, spending, and upcoming commitments."
-      action="Add a transaction"
-    />
+    <div className="dash-content-inner">
+      <div className="dash-subpage">
+        <p className="cfo-kicker">Ledger</p>
+        <h1>Transactions</h1>
+        <p>
+          Posted movements feed cash flow, spending, and health. Upcoming
+          (pending) items appear on the dashboard until they post.
+        </p>
+        <TransactionComposer />
+      </div>
+    </div>
   );
 }

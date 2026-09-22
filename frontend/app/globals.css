@@ -40,7 +40,7 @@
   --cfo-ink-faint: #5c5850;
 
   /* Lines */
-  --cfo-line: rgba(239, 234, 225, 0.10);
+  --cfo-line: rgba(239, 234, 225, 0.1);
   --cfo-line-strong: rgba(239, 234, 225, 0.22);
 
   /* Accent — burnt orange */
@@ -51,6 +51,11 @@
   --cfo-danger: #d26a5a;
   --cfo-success: #5fa67a;
   --cfo-warn: #c9963a;
+
+  /* Motion — short, ease-out, no bounce */
+  --cfo-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --cfo-duration: 160ms;
+  --cfo-press: 90ms;
 
   /* Font stacks (variables injected by layout.tsx) */
   --cfo-display: var(--font-cfo-display), "Times New Roman", serif;
@@ -132,9 +137,11 @@ body {
     linear-gradient(to bottom, var(--cfo-line) 1px, transparent 1px);
   background-size: 56px 56px;
   background-position: center top;
-  mask-image: radial-gradient(ellipse 90% 80% at 50% 30%,
-      #000 20%,
-      transparent 80%);
+  mask-image: radial-gradient(
+    ellipse 90% 80% at 50% 30%,
+    #000 20%,
+    transparent 80%
+  );
   opacity: 0.45;
 }
 
@@ -160,7 +167,7 @@ body {
 }
 
 /* Push all direct children of .cfo-root above the decorative layer */
-.cfo-root>*:not(.cfo-grid):not(.cfo-guide) {
+.cfo-root > *:not(.cfo-grid):not(.cfo-guide) {
   position: relative;
   z-index: 1;
 }
@@ -341,11 +348,20 @@ body {
   padding: 1.35rem 1.15rem;
   background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
   border: 1px solid var(--cfo-line-strong);
-  transition: border-color 160ms ease;
+  transition:
+    border-color var(--cfo-duration) var(--cfo-ease),
+    background-color var(--cfo-duration) var(--cfo-ease),
+    box-shadow var(--cfo-duration) var(--cfo-ease),
+    transform var(--cfo-duration) var(--cfo-ease);
 }
 
-.cfo-card:hover {
-  border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+@media (hover: hover) {
+  .cfo-card:hover {
+    border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+    background: color-mix(in srgb, var(--cfo-bg-elevated) 88%, transparent);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--cfo-bg) 22%, transparent);
+    transform: translateY(-2px);
+  }
 }
 
 /* ── 9. CORNER BRACKETS ──────────────────────────────────────────────────── */
@@ -458,8 +474,9 @@ body {
   letter-spacing: 0.01em;
   outline: none;
   transition:
-    border-color 160ms ease,
-    background-color 160ms ease;
+    border-color var(--cfo-duration) var(--cfo-ease),
+    background-color var(--cfo-duration) var(--cfo-ease),
+    box-shadow var(--cfo-duration) var(--cfo-ease);
 }
 
 .cfo-input--padded {
@@ -477,6 +494,7 @@ body {
 .cfo-input:focus {
   border-color: var(--cfo-accent);
   background: var(--cfo-accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cfo-accent) 12%, transparent);
 }
 
 .cfo-input[aria-invalid="true"] {
@@ -506,7 +524,7 @@ body {
   border: 0;
   color: var(--cfo-ink-dim);
   cursor: pointer;
-  transition: color 160ms ease;
+  transition: color var(--cfo-duration) var(--cfo-ease);
 }
 
 .cfo-toggle:hover,
@@ -574,13 +592,15 @@ body {
   cursor: pointer;
   text-decoration: none;
   transition:
-    background-color 160ms ease,
-    color 160ms ease,
-    border-color 160ms ease;
+    background-color var(--cfo-duration) var(--cfo-ease),
+    color var(--cfo-duration) var(--cfo-ease),
+    border-color var(--cfo-duration) var(--cfo-ease),
+    transform var(--cfo-press) var(--cfo-ease),
+    opacity var(--cfo-duration) var(--cfo-ease);
 }
 
-.cfo-btn:active {
-  transform: translateY(1px);
+.cfo-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
 }
 
 .cfo-btn:disabled {
@@ -666,7 +686,9 @@ body {
 .cfo-reveal {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.65s ease, transform 0.65s ease;
+  transition:
+    opacity 0.65s ease,
+    transform 0.65s ease;
 }
 
 .cfo-reveal.cfo-visible {
@@ -676,7 +698,6 @@ body {
 
 /* ── 14. KEYFRAME ANIMATIONS ─────────────────────────────────────────────── */
 @keyframes cfoPulse {
-
   0%,
   100% {
     opacity: 1;
@@ -688,7 +709,6 @@ body {
 }
 
 @keyframes cfoFloat {
-
   0%,
   100% {
     transform: translateY(0);
@@ -750,7 +770,7 @@ body {
   gap: 0.4rem;
   color: var(--cfo-ink-dim);
   text-decoration: none;
-  transition: color 160ms ease;
+  transition: color var(--cfo-duration) var(--cfo-ease);
 }
 
 .cfo-foot-link:hover {
@@ -954,11 +974,14 @@ body {
   padding: 1.25rem 1.1rem;
   background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
   border: 1px solid var(--cfo-line-strong);
-  transition: border-color 160ms ease;
+  transition:
+    border-color var(--cfo-duration) var(--cfo-ease),
+    background-color var(--cfo-duration) var(--cfo-ease);
 }
 
 .lp-pain-card:hover {
   border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 88%, transparent);
 }
 
 .lp-pain-icon {
@@ -985,11 +1008,14 @@ body {
   padding: 1.75rem 1.4rem;
   background: color-mix(in srgb, var(--cfo-bg-elevated) 80%, transparent);
   border: 1px solid var(--cfo-line-strong);
-  transition: border-color 160ms ease;
+  transition:
+    border-color var(--cfo-duration) var(--cfo-ease),
+    background-color var(--cfo-duration) var(--cfo-ease);
 }
 
 .lp-pillar:hover {
   border-color: color-mix(in srgb, var(--cfo-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 92%, transparent);
 }
 
 .lp-pillar-icon-wrap {
@@ -1031,11 +1057,14 @@ body {
   padding: 1.35rem 1.15rem;
   background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
   border: 1px solid var(--cfo-line-strong);
-  transition: border-color 160ms ease;
+  transition:
+    border-color var(--cfo-duration) var(--cfo-ease),
+    background-color var(--cfo-duration) var(--cfo-ease);
 }
 
 .lp-feature-card:hover {
   border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 88%, transparent);
 }
 
 .lp-feature-top {
@@ -1126,11 +1155,14 @@ body {
   padding: 1.5rem 1.25rem;
   background: color-mix(in srgb, var(--cfo-bg-elevated) 70%, transparent);
   border: 1px solid var(--cfo-line-strong);
-  transition: border-color 160ms ease;
+  transition:
+    border-color var(--cfo-duration) var(--cfo-ease),
+    background-color var(--cfo-duration) var(--cfo-ease);
 }
 
 .lp-who-card:hover {
   border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
+  background: color-mix(in srgb, var(--cfo-bg-elevated) 88%, transparent);
 }
 
 .lp-who-emoji {
@@ -1362,28 +1394,43 @@ body {
 /* ═══════════════════════════════════════════════════════════════════════════
    REDUCED MOTION
 ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes cfo-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html:focus-within,
+  body {
+    scroll-behavior: auto;
+  }
+
   .cfo-reveal {
     transition: none;
   }
 
-  .lp-metric-card {
-    animation: none;
-  }
-
+  .lp-metric-card,
   .cfo-pulse,
   .lp-road-pulse {
     animation: none;
   }
 
-  .cfo-btn,
-  .cfo-input,
-  .lp-pillar,
-  .lp-pain-card,
-  .lp-feature-card,
-  .lp-who-card,
-  .cfo-foot-link,
-  .cfo-card {
-    transition: none;
+  .cfo-btn:active:not(:disabled) {
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
