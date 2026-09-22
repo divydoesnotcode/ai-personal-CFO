@@ -1604,8 +1604,10 @@ html[data-density="compact"] .dash-subpage {
 }
 
 /* ── Transactions Page (Table, Mobile Cards & Modal) ── */
+.dash-subpage--full,
 .dash-subpage--wide {
-  max-width: 960px;
+  max-width: 100%;
+  width: 100%;
 }
 
 .dash-page-header {
@@ -1619,6 +1621,12 @@ html[data-density="compact"] .dash-subpage {
 .dash-tx-table-wrap {
   display: block;
   overflow-x: auto;
+  max-width: 100%;
+}
+
+.dash-tx-table-wrap .dash-table {
+  width: 100%;
+  max-width: 100%;
 }
 
 .dash-tx-cards {
@@ -1692,6 +1700,48 @@ html[data-density="compact"] .dash-subpage {
   flex-shrink: 0;
 }
 
+.dash-tx-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--cfo-line);
+}
+
+.dash-tx-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.dash-table th.dash-tx-amount,
+.dash-table td.dash-tx-amount {
+  text-align: right;
+  font-family: var(--cfo-mono);
+}
+
+.dash-tx-actions .dash-icon-btn,
+.dash-tx-card-actions .dash-icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.dash-tx-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.dash-icon-btn--danger:hover {
+  color: var(--cfo-danger) !important;
+  border-color: color-mix(in srgb, var(--cfo-danger) 40%, transparent) !important;
+  background: color-mix(in srgb, var(--cfo-danger) 10%, transparent) !important;
+}
+
 .dash-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1712,4 +1762,118 @@ html[data-density="compact"] .dash-subpage {
   margin: auto;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
 }
+
+.dash-alert-dialog {
+  width: min(440px, calc(100vw - 2rem));
+  padding: 1.25rem 1.15rem;
+}
+
+.dash-alert-dialog p {
+  color: var(--cfo-ink-dim);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.dash-alert-dialog p strong {
+  color: var(--cfo-ink);
+}
+
+.dash-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.cfo-btn--danger {
+  border-color: color-mix(in srgb, var(--cfo-danger) 45%, transparent);
+  color: var(--cfo-danger);
+  background: color-mix(in srgb, var(--cfo-danger) 10%, transparent);
+}
+
+.cfo-btn--danger:hover:not(:disabled) {
+  border-color: var(--cfo-danger);
+  background: color-mix(in srgb, var(--cfo-danger) 22%, transparent);
+}
+
+.dash-tx-row {
+  cursor: pointer;
+  transition: background-color var(--cfo-duration) var(--cfo-ease);
+}
+
+.dash-tx-row:hover td {
+  background: color-mix(in srgb, var(--cfo-line-strong) 25%, transparent);
+}
+
+.dash-tx-card--clickable {
+  cursor: pointer;
+  transition: border-color var(--cfo-duration) var(--cfo-ease), transform var(--cfo-press) var(--cfo-ease);
+}
+
+.dash-tx-card--clickable:hover {
+  border-color: color-mix(in srgb, var(--cfo-accent) 40%, var(--cfo-line-strong));
+}
+
+.dash-details-dialog {
+  width: min(540px, calc(100vw - 2rem));
+  padding: 1.35rem 1.25rem;
+}
+
+.dash-details-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0 1.25rem;
+  border-bottom: 1px solid var(--cfo-line);
+  margin-bottom: 1.15rem;
+  text-align: center;
+}
+
+.dash-details-amount {
+  font-family: var(--cfo-display);
+  font-size: 2.15rem;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+}
+
+.dash-details-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dash-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.9rem 1.25rem;
+  font-size: 0.86rem;
+}
+
+.dash-details-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dash-details-item--full {
+  grid-column: 1 / -1;
+}
+
+.dash-details-label {
+  font-family: var(--cfo-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+}
+
+.dash-details-val {
+  color: var(--cfo-ink);
+  word-break: break-word;
+}
+
 

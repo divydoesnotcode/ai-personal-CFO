@@ -9,6 +9,7 @@ import {
   createAccount,
   createGoal,
   createTransaction,
+  updateTransaction,
   listAccounts,
   listBudgets,
   listCategories,
@@ -18,6 +19,7 @@ import {
   type LedgerBudget,
   type LedgerCategory,
   type LedgerGoal,
+  type LedgerTransaction,
 } from "@/lib/ledger-api";
 
 import { Corners } from "./ui";
@@ -52,42 +54,61 @@ function FormStatus({
   );
 }
 
+function toDateTimeLocalValue(dateStr?: string | Date) {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 16);
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+}
+
 export function TransactionComposer({
+  transaction,
   onSuccess,
   onCancel,
   redirectToDashboard = true,
 }: {
+  transaction?: LedgerTransaction | null;
   onSuccess?: () => void;
   onCancel?: () => void;
   redirectToDashboard?: boolean;
 } = {}) {
   const router = useRouter();
-  const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
-  const [categories, setCategories] = useState<LedgerCategory[]>([]);
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState("expense");
-  const [status, setStatus] = useState("posted");
-  const [accountId, setAccountId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [description, setDescription] = useState("");
-  const [when, setWhen] = useState(() => new Date().toISOString().slice(0, 16));
-  const [busy, setBusy] = useState(false);
-  const [tone, setTone] = useState<"idle" | "error" | "ok">("idle");
-  const [message, setMessage] = useState("");
+  const [state, setState] = useState({
+    accounts: [] as LedgerAccount[],
+    categories: [] as LedgerCategory[],
+    amount: transaction ? String(transaction.amount) : "",
+    type: transaction ? transaction.transaction_type : "expense",
+    status: transaction ? transaction.status : "posted",
+    accountId: transaction ? transaction.account_id || "" : "",
+    categoryId: transaction ? transaction.category_id || "" : "",
+    description: transaction
+      ? transaction.description || transaction.merchant_name || ""
+      : "",
+    when: toDateTimeLocalValue(transaction?.transaction_date),
+    busy: false,
+    tone: "idle" as "idle" | "error" | "ok",
+    message: "",
+  });
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([listAccounts(), listCategories()])
       .then(([nextAccounts, nextCategories]) => {
         if (cancelled) return;
-        setAccounts(nextAccounts);
-        setCategories(nextCategories);
-        if (nextAccounts[0]) setAccountId(nextAccounts[0].id);
+        setState((prev) => ({
+          ...prev,
+          accounts: nextAccounts,
+          categories: nextCategories,
+          accountId: transaction ? prev.accountId : (prev.accountId || nextAccounts[0]?.id || ""),
+        }));
       })
       .catch((error) => {
         if (cancelled) return;
-        setTone("error");
-        setMessage(getApiErrorMessage(error, "Unable to load ledger options"));
+        setState((prev) => ({
+          ...prev,
+          tone: "error",
+          message: getApiErrorMessage(error, "Unable to load ledger options"),
+        }));
       });
     return () => {
       cancelled = true;
@@ -96,40 +117,58 @@ export function TransactionComposer({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    const value = Number(amount);
+    const value = Number(state.amount);
     if (!Number.isFinite(value) || value <= 0) {
-      setTone("error");
-      setMessage("Enter an amount greater than zero");
+      setState((prev) => ({
+        ...prev,
+        tone: "error",
+        message: "Enter an amount greater than zero",
+      }));
       return;
     }
-    setBusy(true);
-    setMessage("");
+    setState((prev) => ({ ...prev, busy: true, message: "" }));
     try {
-      await createTransaction({
+      const payload = {
         amount: value,
-        transaction_type: type,
-        status,
-        account_id: accountId || null,
-        category_id: categoryId || null,
-        description: description.trim() || undefined,
-        merchant_name: description.trim() || undefined,
-        transaction_date: new Date(when).toISOString(),
-      });
+        transaction_type: state.type,
+        status: state.status,
+        account_id: state.accountId || null,
+        category_id: state.categoryId || null,
+        description: state.description.trim() || undefined,
+        merchant_name: state.description.trim() || undefined,
+        transaction_date: new Date(state.when).toISOString(),
+      };
+      if (transaction?.id) {
+        await updateTransaction(transaction.id, payload);
+      } else {
+        await createTransaction(payload);
+      }
       invalidateDashboardCache();
-      setTone("ok");
-      setMessage("Transaction recorded");
-      setAmount("");
-      setDescription("");
+      setState((prev) => ({
+        ...prev,
+        tone: "ok",
+        message: transaction ? "Transaction updated" : "Transaction recorded",
+        amount: "",
+        description: "",
+      }));
       if (onSuccess) {
         onSuccess();
       } else if (redirectToDashboard) {
         router.push("/dashboard");
       }
     } catch (error) {
-      setTone("error");
-      setMessage(getApiErrorMessage(error, "Unable to record the transaction"));
+      setState((prev) => ({
+        ...prev,
+        tone: "error",
+        message: getApiErrorMessage(
+          error,
+          transaction
+            ? "Unable to update the transaction"
+            : "Unable to record the transaction"
+        ),
+      }));
     } finally {
-      setBusy(false);
+      setState((prev) => ({ ...prev, busy: false }));
     }
   }
 
@@ -137,7 +176,7 @@ export function TransactionComposer({
     <section className="cfo-panel dash-panel">
       <Corners accent />
       <div className="cfo-panel-head">
-        <strong>Add a transaction</strong>
+        <strong>{transaction ? "Edit transaction" : "Add a transaction"}</strong>
         {onCancel ? (
           <button
             type="button"
@@ -158,13 +197,21 @@ export function TransactionComposer({
             type="number"
             min="0.01"
             step="0.01"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            value={state.amount}
+            onChange={(event) =>
+              setState((prev) => ({ ...prev, amount: event.target.value }))
+            }
             required
           />
         </Field>
         <Field label="Type">
-          <select className="cfo-input" value={type} onChange={(event) => setType(event.target.value)}>
+          <select
+            className="cfo-input"
+            value={state.type}
+            onChange={(event) =>
+              setState((prev) => ({ ...prev, type: event.target.value }))
+            }
+          >
             <option value="expense">Expense</option>
             <option value="income">Income</option>
             <option value="loan_payment">Loan payment</option>
@@ -175,15 +222,26 @@ export function TransactionComposer({
           </select>
         </Field>
         <Field label="Status">
-          <select className="cfo-input" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <select
+            className="cfo-input"
+            value={state.status}
+            onChange={(event) =>
+              setState((prev) => ({ ...prev, status: event.target.value }))
+            }
+          >
             <option value="posted">Posted</option>
             <option value="pending">Upcoming</option>
           </select>
         </Field>
         <Field label="Account">
-          <select className="cfo-input" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-            <option value="">Cash (created if needed)</option>
-            {accounts.map((account) => (
+          <select
+            className="cfo-input"
+            value={state.accountId}
+            onChange={(event) =>
+              setState((prev) => ({ ...prev, accountId: event.target.value }))
+            }
+          >
+            {state.accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
@@ -191,9 +249,15 @@ export function TransactionComposer({
           </select>
         </Field>
         <Field label="Category">
-          <select className="cfo-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+          <select
+            className="cfo-input"
+            value={state.categoryId}
+            onChange={(event) =>
+              setState((prev) => ({ ...prev, categoryId: event.target.value }))
+            }
+          >
             <option value="">Uncategorized</option>
-            {categories.map((category) => (
+            {state.categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
@@ -204,21 +268,25 @@ export function TransactionComposer({
           <input
             className="cfo-input"
             type="datetime-local"
-            value={when}
-            onChange={(event) => setWhen(event.target.value)}
+            value={state.when}
+            onChange={(event) =>
+              setState((prev) => ({ ...prev, when: event.target.value }))
+            }
           />
         </Field>
         <Field label="Description">
           <input
             className="cfo-input"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
+            value={state.description}
+            onChange={(event) =>
+              setState((prev) => ({ ...prev, description: event.target.value }))
+            }
             placeholder="Salary, rent, Swiggy…"
           />
         </Field>
-        <FormStatus tone={tone} message={message} />
-        <button type="submit" className="cfo-btn cfo-btn--ghost" disabled={busy}>
-          {busy ? "Saving…" : "Record transaction"}
+        <FormStatus tone={state.tone} message={state.message} />
+        <button type="submit" className="cfo-btn cfo-btn--ghost" disabled={state.busy}>
+          {state.busy ? "Saving…" : transaction ? "Save changes" : "Record transaction"}
         </button>
       </form>
     </section>

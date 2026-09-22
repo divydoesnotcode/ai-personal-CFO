@@ -27,6 +27,7 @@ from backend.app.schemas.ledger import (
     CategoryCreateRequest,
     GoalCreateRequest,
     TransactionCreateRequest,
+    TransactionUpdateRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -263,6 +264,7 @@ async def create_transaction(
 
     await db.commit()
     await db.refresh(transaction)
+    transaction.account = account
     transaction.category = category
     return transaction
 
@@ -275,12 +277,128 @@ async def list_transactions(
 ) -> list[Transaction]:
     result = await db.execute(
         select(Transaction)
-        .options(selectinload(Transaction.category))
+        .options(
+            selectinload(Transaction.category),
+            selectinload(Transaction.account),
+        )
         .where(Transaction.user_id == user.id)
         .order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc())
         .limit(limit)
     )
     return list(result.scalars().all())
+
+
+async def get_transaction(
+    db: AsyncSession,
+    user: User,
+    transaction_id: UUID,
+) -> Transaction:
+    result = await db.execute(
+        select(Transaction)
+        .options(
+            selectinload(Transaction.category),
+            selectinload(Transaction.account),
+        )
+        .where(Transaction.id == transaction_id, Transaction.user_id == user.id)
+    )
+    transaction = result.scalar_one_or_none()
+    if transaction is None:
+        raise LedgerError("Transaction not found")
+    return transaction
+
+
+async def update_transaction(
+    db: AsyncSession,
+    user: User,
+    transaction_id: UUID,
+    payload: TransactionUpdateRequest,
+) -> Transaction:
+    result = await db.execute(
+        select(Transaction)
+        .options(
+            selectinload(Transaction.category),
+            selectinload(Transaction.account),
+        )
+        .where(Transaction.id == transaction_id, Transaction.user_id == user.id)
+    )
+    transaction = result.scalar_one_or_none()
+    if transaction is None:
+        raise LedgerError("Transaction not found")
+
+    old_account = await get_owned_account(db, user, transaction.account_id)
+    if transaction.status == TransactionStatus.POSTED:
+        apply_balance_change(
+            old_account,
+            -balance_delta(
+                old_account.account_type,
+                transaction.transaction_type,
+                transaction.amount,
+            ),
+        )
+
+    if payload.account_id is None:
+        new_account = old_account
+    else:
+        new_account = await get_owned_account(db, user, payload.account_id)
+
+    category = None
+    if payload.category_id is not None:
+        category = await get_visible_category(db, user, payload.category_id)
+
+    occurred = payload.transaction_date or transaction.transaction_date
+    if occurred.tzinfo is None:
+        occurred = occurred.replace(tzinfo=timezone.utc)
+
+    amount = money(payload.amount)
+    transaction.account_id = new_account.id
+    transaction.transaction_type = payload.transaction_type
+    transaction.status = payload.status
+    transaction.amount = amount
+    transaction.description = payload.description
+    transaction.merchant_name = payload.merchant_name
+    transaction.transaction_date = occurred
+    transaction.category_id = category.id if category else None
+
+    if payload.status == TransactionStatus.POSTED:
+        apply_balance_change(
+            new_account,
+            balance_delta(new_account.account_type, payload.transaction_type, amount),
+        )
+
+    await db.commit()
+    await db.refresh(transaction)
+    transaction.account = new_account
+    transaction.category = category
+    return transaction
+
+
+async def delete_transaction(
+    db: AsyncSession,
+    user: User,
+    transaction_id: UUID,
+) -> None:
+    result = await db.execute(
+        select(Transaction).where(
+            Transaction.id == transaction_id, Transaction.user_id == user.id
+        )
+    )
+    transaction = result.scalar_one_or_none()
+    if transaction is None:
+        raise LedgerError("Transaction not found")
+
+    if transaction.status == TransactionStatus.POSTED:
+        account = await get_owned_account(db, user, transaction.account_id)
+        apply_balance_change(
+            account,
+            -balance_delta(
+                account.account_type,
+                transaction.transaction_type,
+                transaction.amount,
+            ),
+        )
+
+    await db.delete(transaction)
+    await db.commit()
 
 
 async def list_goals(db: AsyncSession, user: User) -> list[FinancialGoal]:

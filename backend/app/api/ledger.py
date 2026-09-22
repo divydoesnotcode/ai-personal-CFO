@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +23,7 @@ from backend.app.schemas.ledger import (
     ListResponse,
     TransactionCreateRequest,
     TransactionOut,
+    TransactionUpdateRequest,
 )
 from backend.app.services import ledger_service
 from backend.app.services.ledger_service import LedgerError, signed_amount
@@ -34,9 +37,11 @@ def _ledger_http_error(exc: LedgerError) -> HTTPException:
 
 def _transaction_out(tx) -> TransactionOut:
     category_name = tx.category.name if getattr(tx, "category", None) else None
+    account_name = tx.account.name if getattr(tx, "account", None) else None
     return TransactionOut(
         id=tx.id,
         account_id=tx.account_id,
+        account_name=account_name,
         transaction_type=tx.transaction_type,
         status=tx.status,
         amount=tx.amount,
@@ -118,6 +123,23 @@ async def list_transactions(
     )
 
 
+@router.get("/transactions/{transaction_id}", response_model=ItemResponse)
+async def get_transaction(
+    transaction_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        transaction = await ledger_service.get_transaction(db, user, transaction_id)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Transaction loaded",
+        data=_transaction_out(transaction).model_dump(mode="json"),
+    )
+
+
 @router.post("/transactions", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_transaction(
     payload: TransactionCreateRequest,
@@ -132,6 +154,43 @@ async def create_transaction(
         success=True,
         message="Transaction recorded",
         data=_transaction_out(transaction).model_dump(mode="json"),
+    )
+
+
+@router.put("/transactions/{transaction_id}", response_model=ItemResponse)
+async def update_transaction(
+    transaction_id: UUID,
+    payload: TransactionUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        transaction = await ledger_service.update_transaction(
+            db, user, transaction_id, payload
+        )
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Transaction updated",
+        data=_transaction_out(transaction).model_dump(mode="json"),
+    )
+
+
+@router.delete("/transactions/{transaction_id}", response_model=ItemResponse)
+async def delete_transaction(
+    transaction_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        await ledger_service.delete_transaction(db, user, transaction_id)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Transaction deleted",
+        data={"id": str(transaction_id)},
     )
 
 
