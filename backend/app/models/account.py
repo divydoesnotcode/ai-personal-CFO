@@ -48,6 +48,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 from backend.app.models.base import BaseModel
+from backend.app.models.types import pg_enum_names
 
 if TYPE_CHECKING:
     from backend.app.models.transaction import Transaction
@@ -123,6 +124,7 @@ class Account(BaseModel):
             name="account_type",
             native_enum=True,
             create_constraint=True,
+            values_callable=pg_enum_names,
         ),
         nullable=False,
     )
