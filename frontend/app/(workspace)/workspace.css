@@ -1602,3 +1602,114 @@ html[data-density="compact"] .dash-subpage {
     transition: none;
   }
 }
+
+/* ── Transactions Page (Table, Mobile Cards & Modal) ── */
+.dash-subpage--wide {
+  max-width: 960px;
+}
+
+.dash-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dash-tx-table-wrap {
+  display: block;
+  overflow-x: auto;
+}
+
+.dash-tx-cards {
+  display: none;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .dash-tx-table-wrap {
+    display: none;
+  }
+  .dash-tx-cards {
+    display: grid;
+  }
+}
+
+.dash-tx-card {
+  padding: 0.85rem 1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dash-tx-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dash-tx-card-date {
+  font-family: var(--cfo-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-faint);
+}
+
+.dash-tx-card-amount {
+  font-family: var(--cfo-mono);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: right;
+}
+
+.dash-tx-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dash-tx-card-desc {
+  font-size: 0.88rem;
+  color: var(--cfo-ink);
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-tx-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--cfo-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+  flex-shrink: 0;
+}
+
+.dash-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--cfo-bg) 75%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100;
+}
+
+.dash-modal {
+  position: fixed;
+  z-index: 110;
+  inset: 0;
+  width: min(520px, calc(100vw - 2rem));
+  height: max-content;
+  max-height: calc(100dvh - 3rem);
+  overflow-y: auto;
+  margin: auto;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+}
+

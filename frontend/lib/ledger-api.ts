@@ -1,6 +1,6 @@
 import { api } from "./api";
 
-type CacheKey = "accounts" | "categories" | "goals" | "budgets";
+type CacheKey = "accounts" | "categories" | "goals" | "budgets" | "transactions";
 
 const cache = new Map<CacheKey, unknown>();
 const inflight = new Map<CacheKey, Promise<unknown>>();
@@ -29,7 +29,7 @@ async function cached<T>(key: CacheKey, loader: () => Promise<T>): Promise<T> {
 
 export function invalidateLedgerCache(...keys: CacheKey[]) {
   const targets: CacheKey[] =
-    keys.length > 0 ? keys : ["accounts", "categories", "goals", "budgets"];
+    keys.length > 0 ? keys : ["accounts", "categories", "goals", "budgets", "transactions"];
   for (const key of targets) {
     cache.delete(key);
     inflight.delete(key);
@@ -97,6 +97,28 @@ export async function listCategories() {
   });
 }
 
+export type LedgerTransaction = {
+  id: string;
+  account_id?: string | null;
+  transaction_type: string;
+  status: string;
+  amount: number | string;
+  signed_amount?: number | string;
+  currency?: string;
+  description?: string | null;
+  merchant_name?: string | null;
+  transaction_date: string;
+  category_id?: string | null;
+  category_name?: string | null;
+};
+
+export async function listTransactions(limit = 100) {
+  return cached("transactions", async () => {
+    const response = await api.get<Envelope<LedgerTransaction[]>>(`/api/transactions?limit=${limit}`);
+    return response.data.data;
+  });
+}
+
 export async function createTransaction(payload: {
   amount: number;
   transaction_type: string;
@@ -108,7 +130,7 @@ export async function createTransaction(payload: {
   status?: string;
 }) {
   const response = await api.post("/api/transactions", payload);
-  invalidateLedgerCache("accounts");
+  invalidateLedgerCache("accounts", "transactions");
   return response.data.data;
 }
 
