@@ -8,6 +8,138 @@ The signed-in dashboard is live against PostgreSQL: overview, health, cash flow,
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.x-D71F00)](https://www.sqlalchemy.org/)
+
+## Why this exists
+
+Most personal finance tools show you what already happened. This project is aimed at a CFO-style layer on top of that:
+
+- What is my real cash position across accounts?
+- Where is money leaking, and is it a pattern?
+- Am I on track for an emergency fund, education, home, or debt payoff?
+- What should I do next, given my actual ledger?
+
+The long-term product is a private financial copilot: ingest transactions, classify them, forecast, and explain recommendations.
+
+## Current status
+
+| Area | Status |
+| --- | --- |
+| FastAPI app, health/readiness, CORS | Ready |
+| Async PostgreSQL + SQLAlchemy 2 | Ready |
+| Alembic financial schema | Ready |
+| Domain API (`/api/v1`) | Not yet |
+| Auth | Not yet |
+| Next.js UI | Scaffold only |
+| ML / RAG / agents | Folders reserved |
+
+## Architecture
+
+```text
+┌─────────────┐     HTTP      ┌──────────────────┐     async      ┌────────────┐
+│  Next.js    │ ────────────► │  FastAPI         │ ─────────────► │ PostgreSQL │
+│  frontend   │  :3000        │  backend :8000   │  SQLAlchemy    │  :5433     │
+└─────────────┘               └──────────────────┘                └────────────┘
+                                      │
+                                      ├── agents/   (planned)
+                                      ├── ml/       (planned)
+                                      └── rag/      (planned)
+```
+
+**Stack**
+
+| Layer | Choice |
+| --- | --- |
+| API | FastAPI + Uvicorn |
+| Config | pydantic-settings |
+| Database | PostgreSQL 16, SQLAlchemy 2 (async), psycopg 3 |
+| Migrations | Alembic |
+| Frontend | Next.js 16, React 19, Tailwind CSS 4 |
+| Charts / HTTP | Recharts, Axios, Zod |
+| Data / ML (later) | pandas, scikit-learn, XGBoost, SHAP |
+
+Money is stored as `Numeric(19, 4)` / `Decimal`, never `float`. Amounts are always positive; direction comes from `transaction_type`. Default currency is INR.
+
+## Data model
+
+```mermaid
+erDiagram
+    users ||--o{ accounts : owns
+    users ||--o{ transactions : records
+    users ||--o{ categories : defines
+    users ||--o{ financial_goals : sets
+    accounts ||--o{ transactions : contains
+    categories ||--o{ transactions : classifies
+    categories ||--o{ categories : parent
+
+    users {
+        uuid id PK
+        string email
+        bool is_active
+    }
+    accounts {
+        uuid id PK
+        uuid user_id FK
+        string name
+        enum account_type
+        numeric balance
+    }
+    transactions {
+        uuid id PK
+        uuid user_id FK
+        uuid account_id FK
+        enum transaction_type
+        numeric amount
+        string currency
+        timestamptz transaction_date
+    }
+    categories {
+        uuid id PK
+        uuid user_id FK
+        string name
+        uuid parent_id FK
+    }
+    financial_goals {
+        uuid id PK
+        uuid user_id FK
+        enum goal_type
+        enum status
+        numeric target_amount
+        date target_date
+    }
+```
+
+**Account types:** bank, savings, cash, credit card, investment, loan
+
+**Transaction types:** income, expense, transfer, refund, adjustment, interest, fee, loan payment, dividend
+
+**Goal types:** emergency fund, education, home, vehicle, travel, investment, debt payoff, savings, other
+
+## Repository layout
+
+```text
+ai-personal-CFO/
+├── alembic/                 # Database migrations
+├── backend/
+│   └── app/
+│       ├── main.py          # FastAPI entry (thin)
+│       ├── config.py        # Environment settings
+│       ├── database.py      # Async engine + sessions
+│       ├── models/          # SQLAlchemy schema
+│       ├── api/             # Versioned routers (planned)
+│       ├── services/        # Business logic (planned)
+│       ├── agents/          # LLM agents (planned)
+│       ├── ml/              # Inference helpers (planned)
+│       └── rag/             # Retrieval (planned)
+├── frontend/                # Next.js App Router
+├── data/                    # Raw / processed / synthetic datasets
+├── ml/                      # Training, evaluation, model artifacts
+├── notebooks/               # Exploration
+├── docs/                    # Product, API, architecture, security
+├── docker-compose.yml       # Postgres (and future app services)
+├── requirements.txt
+└── .env.example
+```
 
 ## Current status
 
@@ -29,132 +161,176 @@ Signed-in pages require a session. Unauthenticated visits to the workspace redir
 
 ## What you need to install
 
+Local development needs four host tools. Everything else (Python packages, npm packages, PostgreSQL) is installed from this repo after those tools are in place.
+
 | Tool | Version | Why |
 | --- | --- | --- |
 | [Git](https://git-scm.com/) | 2.40+ | Clone the repo |
-| [Python](https://www.python.org/downloads/) | **3.14** | Backend |
-| [Node.js](https://nodejs.org/) | **20.9+** (22 LTS recommended) | Frontend. Includes `npm` |
-| [Docker](https://docs.docker.com/get-started/get-docker/) | Engine 24+ with **Compose v2** | Postgres, backend, and frontend containers |
+| [Python](https://www.python.org/downloads/) | **3.14** | Backend, Alembic, `requirements.txt` |
+| [Node.js](https://nodejs.org/) | **20.9+** (22 LTS recommended) | Next.js 16 frontend. Includes `npm` |
+| [Docker](https://docs.docker.com/get-started/get-docker/) | Engine 24+ with **Compose v2** | Runs PostgreSQL 16 (`docker compose up postgres`) |
 
-Also install a compiler toolchain: Xcode Command Line Tools (macOS), `build-essential` (Linux), or Visual Studio C++ Build Tools / **WSL2** (Windows).
+You also need a compiler toolchain on the host. Several packages in `requirements.txt` (NumPy, SciPy, XGBoost, SHAP, Numba, psycopg) expect it.
 
-**Recommended:** Git + Docker only. `docker compose up --build` runs Postgres, the API, and the Next.js UI on macOS, Linux, and Windows. Python and Node are optional and only needed for a native (non-Docker) workflow.
+| Platform | Compiler / build tools |
+| --- | --- |
+| macOS | Xcode Command Line Tools |
+| Linux | `build-essential` (gcc, g++, make) plus Python headers |
+| Windows | Visual Studio Build Tools (C++), or develop inside **WSL2** |
 
-Do **not** install Postgres on the host unless you intend to. The supported database is the `postgres` service in `docker-compose.yml`, on **host port 5433**.
+**Do not install PostgreSQL on the host** unless you know you want that. The supported database is the `postgres` service in `docker-compose.yml`, published on **host port 5433**.
 
-Windows: `uvloop` in `requirements.txt` does not support native Windows. Use **WSL2 (Ubuntu)** for the backend.
+Optional, not required to start:
+
+- A code editor (VS Code, Cursor, Zed, etc.)
+- `psql` if you want a SQL shell against the container
+
+Windows note: `uvloop` in `requirements.txt` does not support native Windows. **WSL2 (Ubuntu) is the recommended Windows setup.** Native Windows can still run Git, Node, and Docker Desktop; use WSL2 for the Python backend.
 
 ### macOS
 
+1. Install Xcode Command Line Tools:
+
 ```bash
 xcode-select --install
+```
 
+2. Install [Homebrew](https://brew.sh/) if you do not have it:
+
+```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 
+Follow the printed `echo` / `eval` instructions so `brew` is on your `PATH` (Apple Silicon uses `/opt/homebrew`).
+
+3. Install Git, Python 3.14, and Node.js:
+
+```bash
 brew update
 brew install git python@3.14 node
 ```
 
-Install [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/) and open it once so the engine is running.
-
-### Linux (Ubuntu / Debian)
+Homebrew’s `node` formula includes `npm`. If `python3` is not 3.14:
 
 ```bash
-sudo apt update
-sudo apt install -y git curl ca-certificates build-essential python3-pip python3-venv software-properties-common
-
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install -y python3.14 python3.14-venv python3.14-dev
-
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker "$USER"
-sudo systemctl enable --now docker
+brew link python@3.14
+echo 'export PATH="$(brew --prefix python@3.14)/libexec/bin:$PATH"' >> ~/.zprofile
+source ~/.zprofile
 ```
 
-Log out and back in so the `docker` group applies.
+4. Install [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Open Docker Desktop once and wait until the engine is running.
 
-### Windows
+   Apple Silicon and Intel both work. Grant the filesystem permission Docker asks for so Compose can mount this repo.
 
-Recommended: in **PowerShell as Administrator**:
-
-```powershell
-wsl --install
-```
-
-Reboot, open Ubuntu, then follow the Linux steps inside WSL. Install [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/) with the WSL2 engine enabled.
-
-Native Windows (may fail on `uvloop`):
-
-```powershell
-winget install --id Git.Git -e
-winget install --id Python.Python.3.14 -e
-winget install --id OpenJS.NodeJS.LTS -e
-winget install --id Docker.DockerDesktop -e
-```
-
-If PowerShell blocks venv activation later:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-### Verify
+5. Confirm:
 
 ```bash
 git --version
-python3 --version          # Windows: py -3.14 --version
+python3 --version    # 3.14.x
+node --version       # v20.9+ or v22.x
+npm --version
+docker --version
+docker compose version
+```
+
+### Linux
+
+Commands below are for **Ubuntu / Debian**. Fedora / Arch equivalents are at the end of this subsection.
+
+1. Update packages and install Git, compilers, and Python headers:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  git \
+  curl \
+  ca-certificates \
+  build-essential \
+  python3-pip \
+  python3-venv
+```
+
+2. Install **Python 3.14**. Ubuntu LTS may still ship an older default, so use the [deadsnakes PPA](https://launchpad.net/~deadsnakes/+archive/ubuntu/ppa) or [pyenv](https://github.com/pyenv/pyenv).
+
+deadsnakes (Ubuntu):
+
+```bash
+sudo apt install -y software-properties-common
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install -y python3.14 python3.14-venv python3.14-dev
+```
+
+Use `python3.14` explicitly in the backend steps if `python3` is not 3.14.
+
+3. Install **Node.js 22 LTS** (includes npm), via [NodeSource](https://github.com/nodesource/distributions) or [nvm](https://github.com/nvm-sh/nvm).
+
+NodeSource:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+4. Install **Docker Engine + Compose plugin** (Docker Desktop is optional on Linux). Official convenience script:
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker "$USER"
+```
+
+Log out and back in (or reboot) so the `docker` group applies. Then:
+
+```bash
+sudo systemctl enable --now docker
+docker compose version
+```
+
+If `docker compose` is missing, install the plugin:
+
+```bash
+sudo apt install -y docker-compose-plugin
+```
+
+5. Confirm:
+
+```bash
+git --version
+python3.14 --version
 node --version
 npm --version
 docker --version
 docker compose version
 ```
 
-## Start the project
-
-Docker Desktop (or Docker Engine) must already be running.
-
-### 0. First-time setup
+**Fedora**
 
 ```bash
-git clone https://github.com/divydoesnotcode/ai-personal-CFO.git
-cd ai-personal-CFO
-
-cp .env.example .env
+sudo dnf install -y git gcc gcc-c++ make python3.14 python3.14-devel nodejs npm
+# Docker: https://docs.docker.com/engine/install/fedora/
 ```
 
-Windows PowerShell: `Copy-Item .env.example .env`
-
-Set `SECRET_KEY` in `.env` to at least 32 characters:
+**Arch**
 
 ```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+sudo pacman -S --needed git base-devel python nodejs npm docker docker-compose
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
 ```
 
-Windows: `py -3.14 -c "import secrets; print(secrets.token_urlsafe(48))"`
+### Windows
 
-`LLM_API_KEY` and `LLM_MODEL` can stay empty.
+**Recommended: WSL2 + Ubuntu**, then follow the Linux section *inside* the WSL distro. Docker Desktop for Windows can run Linux containers and talk to WSL.
 
-### Run everything with Docker (macOS, Linux, Windows)
+#### A. Enable WSL2 (recommended)
 
-This starts Postgres, the FastAPI backend, and the Next.js frontend. You do **not** need Python or Node installed on the host.
+In **PowerShell as Administrator**:
 
-Stop any local process already using ports **3000**, **8000**, or **5433**.
-
-```bash
-docker compose up --build
+```powershell
+wsl --install
 ```
 
-Detached:
-
-```bash
-docker compose up --build -d
-docker compose ps
-docker compose logs -f frontend
-```
+Reboot if asked. Open **Ubuntu** from the Start menu, create your Linux user, then install Git, Python 3.14, Node.js, and Docker from the Linux section above.
 
 | URL | Purpose |
 | --- | --- |
@@ -167,7 +343,7 @@ docker compose logs -f frontend
 | http://localhost:8000/docs | Swagger UI |
 | http://localhost:8000/redoc | ReDoc |
 
-The frontend container listens on **3000** and calls the API at `http://localhost:8000` from the browser. Backend migrations run automatically on container start (`alembic upgrade head`).
+You still need this on Windows itself:
 
 The frontend image runs `npm ci` on start so the named `frontend_node_modules` volume matches `package-lock.json`. If Next reports `Module not found` after a new dependency, restart the frontend container (rebuild if you changed the Dockerfile):
 
@@ -178,65 +354,64 @@ docker compose up --build frontend
 
 Useful Compose commands:
 
-```bash
-docker compose ps
-docker compose logs -f frontend backend postgres
-docker compose restart frontend
-docker compose down
-```
+#### B. Native Windows (PowerShell / cmd)
 
 `docker compose down` stops containers. Add `-v` only if you also want to delete the Postgres volume (that wipes stored users). Named volumes `frontend_node_modules` and `frontend_next` are also removed with `-v`.
 
-### Native run (optional)
+Manual installers if you prefer not to use winget:
 
-Use this if you want hot reload without rebuilding images. Still start Postgres with Docker.
+| Tool | Installer |
+| --- | --- |
+| Git | https://git-scm.com/download/win |
+| Python 3.14 | https://www.python.org/downloads/windows/ |
+| Node.js LTS | https://nodejs.org/ (LTS) |
+| Docker Desktop | https://docs.docker.com/desktop/setup/install/windows-install/ |
+| C++ build tools | https://visualstudio.microsoft.com/visual-cpp-build-tools/ — select **Desktop development with C++** |
 
-Python venv (once):
+Python installer checklist:
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+- Enable **Add python.exe to PATH**
+- Enable **py launcher**
+- Open a **new** terminal after install
+
+Docker Desktop checklist:
+
+- Enable WSL2 when the installer asks
+- Start Docker Desktop and wait until it is running
+- BIOS virtualization (VT-x / AMD-V) must be on
+
+Close and reopen the terminal, then confirm:
+
+```powershell
+git --version
+py -3.14 --version
+node --version
+npm --version
+docker --version
+docker compose version
 ```
 
-Frontend packages (once):
+If PowerShell blocks `Activate.ps1` later:
 
-```bash
-cd frontend
-npm install
-```
-
-Postgres:
-
-```bash
-docker compose up -d postgres
-docker compose ps
-```
-
-Wait until `postgres` is `healthy`. Host port is **5433**.
-
-Backend (port 8000), from the repo root:
-
-```bash
-source .venv/bin/activate
-alembic upgrade head
-uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
 Windows activate: `.\.venv\Scripts\Activate.ps1`
 If `python3` is not 3.14: `python3.14 -m venv .venv`
 
-Frontend (port 3000), in a second terminal:
+Run this from any shell after installing. Python on Windows is `py -3.14` instead of `python3`.
 
 ```bash
-cd frontend
-npm run dev
+git --version
+python3 --version          # Windows: py -3.14 --version
+node --version
+npm --version
+docker --version
+docker compose version
 ```
 
-Do not mix a native Next.js process and the frontend container on port 3000 at the same time.
-
-The frontend calls `http://localhost:8000` (`NEXT_PUBLIC_API_URL`). Copy `frontend/.env.example` to `frontend/.env.local` if you need to override that.
+Expected: Python **3.14.x**, Node **v20.9+** (or **v22**), Docker Compose **v2**.
 
 ## App routes
 
@@ -285,33 +460,28 @@ Add data from `/transactions`, `/goals`, `/budgets`, `/investments`, and `/debt`
 
 Signup rows land in the `users` table. Workspace forms write accounts, transactions, goals, budgets, profile fields, preferences, and sessions.
 
-### Connection (CLI and GUI)
-
-| Field | Value |
-| --- | --- |
-| Host | `localhost` |
-| Port | **5433** |
-| Database | `personal_cfo` |
-| User | `postgres` |
-| Password | `postgres` |
-| SSL | Off |
-
-### Command line (`psql`)
+### 1. Clone and configure
 
 ```bash
-docker exec -it personal-cfo-postgres psql -U postgres -d personal_cfo
+git clone https://github.com/divydoesnotcode/ai-personal-CFO.git
+cd ai-personal-CFO
 ```
 
-Inside `psql`:
+Copy the env file:
 
-```sql
-\dt
+```bash
+# macOS / Linux / WSL
+cp .env.example .env
 
-\d users
+# Windows PowerShell
+Copy-Item .env.example .env
+```
 
-SELECT id, name, email, is_active, created_at
-FROM users
-ORDER BY created_at DESC;
+Set `SECRET_KEY` in `.env` to a unique string of at least 32 characters:
+
+```bash
+# macOS / Linux / WSL
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 SELECT
   (SELECT count(*) FROM users) AS users,
@@ -324,35 +494,55 @@ SELECT
   (SELECT count(*) FROM user_sessions) AS user_sessions;
 ```
 
-Leave with `\q`.
+`LLM_API_KEY` and `LLM_MODEL` can stay empty for now.
 
-One-shot from the terminal:
+### 2. Start PostgreSQL
 
-```bash
-docker exec -it personal-cfo-postgres \
-  psql -U postgres -d personal_cfo \
-  -c "SELECT id, name, email, is_active, created_at FROM users;"
-```
-
-Do not treat `password_hash` as a readable password. It is Argon2.
-
-### GUI
-
-Install one of:
+Postgres is published on **host port 5433** so it does not collide with a local Postgres on 5432. Docker Desktop (or Docker Engine) must be running.
 
 ```bash
-brew install --cask tableplus
-# or
-brew install --cask pgadmin4
+docker compose up -d postgres
+docker compose ps
 ```
 
-**TablePlus:** new PostgreSQL connection → fill in the table above → Connect → open `users`.
+Wait until the `postgres` service is `healthy`.
 
-**pgAdmin:** Register Server → host `localhost`, port `5433`, database `personal_cfo`, user `postgres`, password `postgres` → Databases → personal_cfo → Schemas → public → Tables → `users` → View/Edit Data → All Rows.
+### 3. Backend
 
-**VS Code / Cursor:** install a PostgreSQL extension (SQLTools + PostgreSQL driver, or similar), add the same connection, then run the `SELECT` above.
+macOS / Linux / WSL:
 
-After signing up at http://localhost:3000/signup, refresh `users`.
+```bash
+python3 -m venv .venv
+# If python3 is not 3.14:
+# python3.14 -m venv .venv
+
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Windows (cmd / PowerShell), if you are not using WSL:
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+| Endpoint | Purpose |
+| --- | --- |
+| [http://localhost:8000](http://localhost:8000) | API info |
+| [http://localhost:8000/health](http://localhost:8000/health) | Liveness |
+| [http://localhost:8000/ready](http://localhost:8000/ready) | Readiness |
+| [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger UI |
+| [http://localhost:8000/redoc](http://localhost:8000/redoc) | ReDoc |
+
+The API refuses to start if PostgreSQL is unreachable.
 
 ## APIs
 
@@ -439,9 +629,9 @@ Each page calls only its own resource. Responses use `{ "success": true, "messag
 
 JWTs issued at sign-in include `ver` (token version) and `jti` (session id). Tokens issued before this change still work until they expire, but they will not appear in the session list.
 
-## Environment variables
+Open [http://localhost:3000](http://localhost:3000). Signup UI: [http://localhost:3000/signup](http://localhost:3000/signup). Next.js defaults to port **3000** (`frontend/package.json` → `next dev`; Compose maps `3000:3000`). The frontend is set up to call `http://localhost:8000` (`NEXT_PUBLIC_API_URL`).
 
-Configured in `.env` (copy from `.env.example`). Do not commit `.env`.
+## Environment variables
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -462,9 +652,13 @@ CORS allows `http://localhost:3000`.
 ## Database migrations
 
 ```bash
-source .venv/bin/activate
+# Apply all migrations
 alembic upgrade head
+
+# Autogenerate after model changes
 alembic revision --autogenerate -m "describe the change"
+
+# Roll back one revision
 alembic downgrade -1
 ```
 
@@ -497,6 +691,31 @@ ai-personal-CFO/
 ├── requirements.txt
 └── .env.example
 ```
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+```
+
+## Roadmap
+
+1. Restore a complete `User` model and ship `/api/v1` for users, accounts, transactions, categories, and goals.
+2. Authentication and per-user isolation.
+3. Transaction import + categorization (rules, then ML).
+4. Cash-flow, net-worth, and goal-progress services.
+5. Dashboard UI (accounts, ledger, charts).
+6. Forecasting, RAG over the user's financial history, and a conversational CFO agent.
+
+## Security
+
+This is a personal-finance system. Treat every environment as if it holds real money data:
+
+- Never commit `.env`, dumps, or model artifacts with personal records.
+- Use a unique `SECRET_KEY` per environment.
+- Prefer parameterized queries (SQLAlchemy) and Decimal math.
+- Keep debug SQL logging off outside local development.
 
 ## License
 
