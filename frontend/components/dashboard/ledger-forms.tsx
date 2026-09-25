@@ -10,12 +10,10 @@ import {
   createGoal,
   createTransaction,
   listAccounts,
-  listBudgets,
   listCategories,
   listGoals,
   upsertBudget,
   type LedgerAccount,
-  type LedgerBudget,
   type LedgerCategory,
   type LedgerGoal,
 } from "@/lib/ledger-api";
@@ -334,10 +332,17 @@ export function GoalComposer() {
   );
 }
 
-export function BudgetComposer() {
+export function BudgetComposer({
+  onSuccess,
+  onCancel,
+  redirectToDashboard = true,
+}: {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  redirectToDashboard?: boolean;
+} = {}) {
   const router = useRouter();
   const [categories, setCategories] = useState<LedgerCategory[]>([]);
-  const [budgets, setBudgets] = useState<LedgerBudget[]>([]);
   const [categoryId, setCategoryId] = useState("");
   const [limit, setLimit] = useState("");
   const [busy, setBusy] = useState(false);
@@ -345,16 +350,22 @@ export function BudgetComposer() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    Promise.all([listCategories(), listBudgets()])
-      .then(([nextCategories, nextBudgets]) => {
-        setCategories(nextCategories.filter((item) => item.name !== "Income"));
-        setBudgets(nextBudgets);
-        if (nextCategories[0]) setCategoryId(nextCategories[0].id);
+    let cancelled = false;
+    listCategories()
+      .then((nextCategories) => {
+        if (cancelled) return;
+        const spendCategories = nextCategories.filter((item) => item.name !== "Income");
+        setCategories(spendCategories);
+        if (spendCategories[0]) setCategoryId(spendCategories[0].id);
       })
       .catch((error) => {
+        if (cancelled) return;
         setTone("error");
         setMessage(getApiErrorMessage(error, "Unable to load budgets"));
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function onSubmit(event: FormEvent) {
@@ -366,13 +377,18 @@ export function BudgetComposer() {
       return;
     }
     setBusy(true);
+    setMessage("");
     try {
       await upsertBudget({ category_id: categoryId, monthly_limit: monthly });
       invalidateDashboardCache();
       setTone("ok");
       setMessage("Budget saved");
       setLimit("");
-      router.push("/dashboard");
+      if (onSuccess) {
+        onSuccess();
+      } else if (redirectToDashboard) {
+        router.push("/dashboard");
+      }
     } catch (error) {
       setTone("error");
       setMessage(getApiErrorMessage(error, "Unable to save the budget"));
@@ -385,19 +401,20 @@ export function BudgetComposer() {
     <section className="cfo-panel dash-panel">
       <Corners accent />
       <div className="cfo-panel-head">
-        <strong>Monthly limits</strong>
-        <span>BUDGET</span>
+        <strong>Add a budget</strong>
+        {onCancel ? (
+          <button
+            type="button"
+            className="dash-icon-btn"
+            aria-label="Close dialog"
+            onClick={onCancel}
+          >
+            ✕
+          </button>
+        ) : (
+          <span>BUDGET</span>
+        )}
       </div>
-      {budgets.length > 0 ? (
-        <ul className="dash-ledger-list">
-          {budgets.map((budget) => (
-            <li key={budget.id}>
-              <span>{budget.category_name}</span>
-              <b>₹{Number(budget.monthly_limit).toLocaleString("en-IN")}</b>
-            </li>
-          ))}
-        </ul>
-      ) : null}
       <form className="cfo-form dash-ledger-form" onSubmit={onSubmit}>
         <Field label="Category">
           <select className="cfo-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
