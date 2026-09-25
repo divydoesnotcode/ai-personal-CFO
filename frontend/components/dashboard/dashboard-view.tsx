@@ -133,7 +133,7 @@ export function DashboardView() {
         </p>
       </motion.header>
 
-      <motion.div className="dash-span" {...fade(1, reduced)}>
+      <motion.div className="dash-span dash-order-overview" {...fade(1, reduced)}>
         <OverviewCards
           overview={data?.overview ?? null}
           loading={loading}

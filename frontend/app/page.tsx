@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useReveal, useStagger } from "@/lib/use-reveal";
 import {
   DollarSign,
@@ -167,6 +168,7 @@ export default function Home() {
           <span><span className="cfo-pulse" aria-hidden="true" />SYS.READY</span>
           <span>LEDGER / INR</span>
           <span className="cfo-hide-sm">v0.1.0</span>
+          <ThemeToggle />
         </p>
       </header>
 

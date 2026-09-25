@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { CfoReveal } from "./cfo-reveal";
 
 type AuthShellProps = {
@@ -35,6 +36,7 @@ export function AuthShell({
             NODE <b>01</b>
           </span>
           <span>LEDGER / INR</span>
+          <ThemeToggle />
         </p>
       </header>
 
