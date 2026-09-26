@@ -81,6 +81,7 @@ function SigninFormInner() {
       setAuthSession({
         user: response.data.user,
         token: response.data.token,
+        refreshToken: response.data.refresh_token,
       });
 
       // The workspace consumes this once to install a Back-navigation guard.

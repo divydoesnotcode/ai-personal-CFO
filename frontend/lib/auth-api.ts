@@ -12,8 +12,8 @@ type SigninResponse = {
   message: string;
   data: {
     user: AuthUser;
-    /** Short-lived JWT — store in memory, never in localStorage. */
     token: string;
+    refresh_token?: string;
   };
 };
 
@@ -23,6 +23,7 @@ type RefreshResponse = {
   data: {
     user: AuthUser;
     token: string;
+    refresh_token?: string;
   };
 };
 
