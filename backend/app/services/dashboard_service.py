@@ -34,6 +34,7 @@ from backend.app.schemas.dashboard import (
     FinancialHealth,
     GoalCard,
     HealthPillar,
+    HealthStatus,
     Insight,
     Investments,
     InvestmentSlice,
@@ -634,9 +635,10 @@ def _financial_health(
     investments: Investments,
     goals: list[GoalCard],
 ) -> FinancialHealth:
-    cash_flow_status = (
+    cash_flow_status: HealthStatus = (
         "excellent" if this_net > 0 else "good" if this_net == 0 else "needs_attention"
     )
+    savings_status: HealthStatus
     if this_rate >= 30:
         savings_status = "excellent"
     elif this_rate >= 20:
@@ -646,6 +648,7 @@ def _financial_health(
     else:
         savings_status = "needs_attention"
 
+    debt_status: HealthStatus
     if liabilities <= 0:
         debt_status = "excellent"
     elif assets <= 0:
@@ -661,6 +664,7 @@ def _financial_health(
         else:
             debt_status = "needs_attention"
 
+    invest_status: HealthStatus
     if not investments.connected:
         invest_status = "needs_attention"
     elif investments.value <= 0:
@@ -677,6 +681,7 @@ def _financial_health(
         None,
     )
     monthly_expenses = this_expenses if this_expenses > 0 else Decimal("1")
+    emergency_status: HealthStatus
     if emergency:
         months = Decimal(str(emergency.current)) / monthly_expenses
         if months >= 6:

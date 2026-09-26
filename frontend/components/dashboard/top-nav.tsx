@@ -18,6 +18,7 @@ type TopNavProps = {
   notifications: NotificationItem[];
   onMenu: () => void;
   onLogout: () => void;
+  minimal?: boolean;
 };
 
 export function TopNav({
@@ -26,6 +27,7 @@ export function TopNav({
   notifications,
   onMenu,
   onLogout,
+  minimal = false,
 }: TopNavProps) {
   const { openPanel } = useAskCfo();
   const reduced = useReducedMotion();
@@ -90,6 +92,30 @@ export function TopNav({
           ease: [0.22, 1, 0.36, 1] as const,
         },
       };
+
+  if (minimal) {
+    return (
+      <header className="dash-top" ref={rootRef}>
+        <div className="dash-top-left">
+          <p className="dash-top-title" style={{ display: "block" }}>
+            AI Personal <span>CFO</span> &nbsp;·&nbsp; <span>INITIALIZATION</span>
+          </p>
+        </div>
+        <div className="dash-top-right">
+          <ThemeToggle />
+          <button
+            type="button"
+            className="dash-icon-btn"
+            aria-label="Logout"
+            title="Log out"
+            onClick={onLogout}
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="dash-top" ref={rootRef}>

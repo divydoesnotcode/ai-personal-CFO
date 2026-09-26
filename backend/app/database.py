@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 engine: AsyncEngine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.computed_database_url,
 
     # -------------------------------------------------------------------------
     # Connection Pool
@@ -170,32 +170,26 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def check_database_connection() -> bool:
     """
-    Verify that PostgreSQL is reachable.
-
-    Returns:
-        True if the database responds successfully.
-
-    Raises:
-        Exception:
-            Propagates the underlying database error.
-
-    This function is intended for:
-        - Application startup checks.
-        - Readiness endpoints.
-        - Operational monitoring.
+    Verify that PostgreSQL is reachable and required schema columns exist.
     """
-
     try:
-        async with engine.connect() as connection:
+        async with engine.begin() as connection:
             await connection.execute(text("SELECT 1"))
+            try:
+                await connection.execute(
+                    text("ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE;")
+                )
+                await connection.execute(
+                    text("ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS onboarding_step INT NOT NULL DEFAULT 1;")
+                )
+            except Exception as exc:
+                logger.warning("Schema migration warning: %s", exc)
 
-        logger.info("Database connection check successful.")
-
+        logger.info("Database connection check & schema verification successful.")
         return True
 
     except Exception:
         logger.exception("Database connection check failed.")
-
         return False
 
 

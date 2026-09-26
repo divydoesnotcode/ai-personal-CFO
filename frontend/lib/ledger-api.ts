@@ -41,6 +41,7 @@ export type LedgerAccount = {
   name: string;
   account_type: string;
   balance: number | string;
+  description?: string | null;
   is_active: boolean;
 };
 

@@ -21,12 +21,37 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 
-    DATABASE_URL: str
+    DATABASE_URL: str | None = None
+    USER: str | None = None
+    PASSWORD: str | None = None
+    HOST: str | None = None
+    PORT: str | int | None = None
+    DBNAME: str | None = None
+
+    @property
+    def computed_database_url(self) -> str:
+        """Return a valid async SQLAlchemy PostgreSQL connection string."""
+        url = self.DATABASE_URL
+        if not url and self.HOST and self.USER and self.PASSWORD:
+            port = self.PORT or 6543
+            dbname = self.DBNAME or "postgres"
+            url = f"postgresql://{self.USER}:{self.PASSWORD}@{self.HOST}:{port}/{dbname}?sslmode=require"
+
+        if not url:
+            url = "postgresql+psycopg://postgres:postgres@localhost:5433/personal_cfo"
+
+        # Normalize driver for psycopg3 async engine
+        if url.startswith("postgresql+psycopg2://"):
+            url = url.replace("postgresql+psycopg2://", "postgresql+psycopg://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+        return url
 
     BACKEND_HOST: str = "0.0.0.0"
     BACKEND_PORT: int = 8000
 
-    SECRET_KEY: str = Field(min_length=32)
+    SECRET_KEY: str = Field(default="dev_secret_key_must_be_at_least_32_characters_long_for_security", min_length=32)
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -42,7 +67,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=True,
+        case_sensitive=False,
         extra="ignore",
     )
 

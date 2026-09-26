@@ -91,6 +91,20 @@ class UserPreference(BaseModel):
         server_default=text("6"),
     )
 
+    onboarding_completed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
+    onboarding_step: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
+
     user: Mapped["User"] = relationship(
         "User",
         back_populates="preferences",

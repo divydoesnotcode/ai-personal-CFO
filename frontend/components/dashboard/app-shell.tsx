@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -20,6 +21,7 @@ import {
 import { AskCfoProvider } from "@/lib/dashboard/ask-cfo";
 import { useDashboard } from "@/lib/dashboard/use-dashboard";
 import { useAuth } from "@/lib/use-auth";
+import { useOnboarding } from "@/lib/use-onboarding";
 
 import { AskCfoPanel } from "./ask-cfo-panel";
 import { LoadingIndicator } from "./loading-indicator";
@@ -39,9 +41,30 @@ function sidebarCollapsed() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { user, logout, status } = useAuth({ requireAuth: true });
+  const { isCompleted: onboardingDone, loading: onboardingLoading } = useOnboarding(Boolean(user));
   const { data, loading, refreshing } = useDashboard(Boolean(user));
   const reduced = useReducedMotion();
+
+  const isGettingStarted =
+    pathname === "/getting-started" ||
+    pathname === "/onboarding" ||
+    (!onboardingLoading && !onboardingDone) ||
+    (!loading && Boolean(data) && !data?.hasLedger);
+
+  useEffect(() => {
+    if (
+      !onboardingLoading &&
+      !onboardingDone &&
+      pathname !== "/getting-started" &&
+      pathname !== "/onboarding" &&
+      pathname !== "/dashboard"
+    ) {
+      router.replace("/dashboard");
+    }
+  }, [onboardingLoading, onboardingDone, pathname, router]);
   const collapsed = useSyncExternalStore(
     subscribeSidebar,
     sidebarCollapsed,
@@ -185,17 +208,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <AskCfoProvider>
-      <div className="dash-root">
+      <div className={`dash-root${isGettingStarted ? " dash-root--onboarding" : ""}`}>
         <LoadingIndicator active={loading || refreshing} />
-        <motion.aside
-          className={`dash-sidebar${collapsed ? " dash-sidebar--collapsed" : ""}`}
-          aria-label="Primary"
-          initial={false}
-          animate={{ width: collapsed ? 64 : 232 }}
-          transition={{ duration, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} />
-        </motion.aside>
+        {!isGettingStarted && (
+          <motion.aside
+            className={`dash-sidebar${collapsed ? " dash-sidebar--collapsed" : ""}`}
+            aria-label="Primary"
+            initial={false}
+            animate={{ width: collapsed ? 64 : 232 }}
+            transition={{ duration, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} />
+          </motion.aside>
+        )}
 
         <div className="dash-main">
           <TopNav
@@ -204,6 +229,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             notifications={data?.notifications ?? []}
             onMenu={() => setDrawer(true)}
             onLogout={requestLogout}
+            minimal={isGettingStarted}
           />
           <div className="dash-content">{children}</div>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { getApiErrorMessage } from "@/lib/api";
@@ -191,6 +192,16 @@ export function TransactionComposer({
           <span>LEDGER</span>
         )}
       </div>
+      {state.accounts.length === 0 && !state.busy && (
+        <div style={{ margin: "1rem 1.25rem 0", padding: "0.75rem", background: "color-mix(in srgb, var(--cfo-accent) 10%, transparent)", border: "1px solid var(--cfo-accent)", fontSize: "0.78rem" }}>
+          <p style={{ margin: 0, color: "var(--cfo-ink)", fontWeight: 500 }}>
+            ⚠️ <strong>No accounts found.</strong> You must add a bank account with starting balance or record income before posting an expense.
+          </p>
+          <Link href="/settings?tab=accounts" style={{ display: "inline-block", marginTop: "0.4rem", color: "var(--cfo-accent)", fontWeight: 600 }}>
+            Manage Accounts in Settings →
+          </Link>
+        </div>
+      )}
       <form className="cfo-form dash-ledger-form" onSubmit={onSubmit}>
         <Field label="Amount (₹)">
           <input
