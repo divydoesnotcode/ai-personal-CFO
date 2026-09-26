@@ -1714,7 +1714,8 @@ html[data-density="compact"] .dash-subpage {
   border-top: 1px solid var(--cfo-line);
 }
 
-.dash-tx-actions {
+.dash-tx-actions,
+.dash-row-actions {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -1728,7 +1729,8 @@ html[data-density="compact"] .dash-subpage {
 }
 
 .dash-tx-actions .dash-icon-btn,
-.dash-tx-card-actions .dash-icon-btn {
+.dash-tx-card-actions .dash-icon-btn,
+.dash-row-actions .dash-icon-btn {
   width: 28px;
   height: 28px;
 }
@@ -1879,5 +1881,163 @@ html[data-density="compact"] .dash-subpage {
   color: var(--cfo-ink);
   word-break: break-word;
 }
+
+.dash-settings-tabs,
+.dash-tab-desktop-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--cfo-line);
+  padding-bottom: 0.75rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.dash-settings-tabs::-webkit-scrollbar,
+.dash-tab-desktop-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.dash-settings-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  font-family: var(--cfo-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cfo-ink-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 120ms ease-out;
+}
+
+.dash-settings-tab:hover {
+  color: var(--cfo-ink);
+  border-color: var(--cfo-line);
+}
+
+.dash-settings-tab.active {
+  color: var(--cfo-accent);
+  border-color: var(--cfo-accent);
+  background: color-mix(in srgb, var(--cfo-accent) 8%, transparent);
+}
+
+/* Reports Specific Styles */
+.cfo-statement-doc {
+  background: var(--cfo-bg-elevated);
+  border: 1px solid var(--cfo-line);
+  padding: 2.25rem 2.5rem;
+  margin-top: 1rem;
+  box-shadow: var(--cfo-shadow, none);
+}
+
+.cfo-statement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid var(--cfo-ink);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.75rem;
+}
+
+.cfo-statement-title {
+  font-family: var(--cfo-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--cfo-ink);
+}
+
+.cfo-statement-meta {
+  font-family: var(--cfo-mono);
+  font-size: 0.78rem;
+  color: var(--cfo-ink-dim);
+  text-align: right;
+  line-height: 1.5;
+}
+
+.cfo-statement-section {
+  margin-bottom: 2rem;
+}
+
+.cfo-statement-section-title {
+  font-family: var(--cfo-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cfo-accent);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--cfo-line);
+}
+
+.cfo-statement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  font-size: 0.88rem;
+  border-bottom: 1px dashed color-mix(in srgb, var(--cfo-line) 60%, transparent);
+}
+
+.cfo-statement-row--total {
+  font-weight: 700;
+  border-top: 1px solid var(--cfo-ink);
+  border-bottom: 1px solid var(--cfo-ink);
+  margin-top: 0.5rem;
+  padding: 0.65rem 0;
+}
+
+.cfo-statement-verdict {
+  background: color-mix(in srgb, var(--cfo-accent) 6%, transparent);
+  border-left: 3px solid var(--cfo-accent);
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .dash-sidebar,
+  .dash-topnav,
+  .dash-settings-tabs,
+  .cfo-btn,
+  .no-print,
+  button {
+    display: none !important;
+  }
+  .dash-content,
+  .dash-subpage,
+  .dash-content-inner {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .cfo-statement-doc {
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
+
+
 
 

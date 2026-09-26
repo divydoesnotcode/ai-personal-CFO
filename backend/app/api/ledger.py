@@ -13,12 +13,15 @@ from backend.app.models.user import User
 from backend.app.schemas.ledger import (
     AccountCreateRequest,
     AccountOut,
+    AccountUpdateRequest,
     BudgetOut,
     BudgetUpsertRequest,
     CategoryCreateRequest,
     CategoryOut,
+    CategoryUpdateRequest,
     GoalCreateRequest,
     GoalOut,
+    GoalUpdateRequest,
     ItemResponse,
     ListResponse,
     TransactionCreateRequest,
@@ -82,6 +85,41 @@ async def create_account(
     )
 
 
+@router.put("/accounts/{account_id}", response_model=ItemResponse)
+async def update_account(
+    account_id: UUID,
+    payload: AccountUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        account = await ledger_service.update_account(db, user, account_id, payload)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Account updated",
+        data=AccountOut.model_validate(account).model_dump(mode="json"),
+    )
+
+
+@router.delete("/accounts/{account_id}", response_model=ItemResponse)
+async def delete_account(
+    account_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        await ledger_service.delete_account(db, user, account_id)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Account deleted",
+        data={"id": str(account_id)},
+    )
+
+
 @router.get("/categories", response_model=ListResponse)
 async def list_categories(
     db: AsyncSession = Depends(get_db_session),
@@ -109,9 +147,44 @@ async def create_category(
     )
 
 
+@router.put("/categories/{category_id}", response_model=ItemResponse)
+async def update_category(
+    category_id: UUID,
+    payload: CategoryUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        category = await ledger_service.update_category(db, user, category_id, payload)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Category updated",
+        data=CategoryOut.model_validate(category).model_dump(mode="json"),
+    )
+
+
+@router.delete("/categories/{category_id}", response_model=ItemResponse)
+async def delete_category(
+    category_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        await ledger_service.delete_category(db, user, category_id)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Category deleted",
+        data={"id": str(category_id)},
+    )
+
+
 @router.get("/transactions", response_model=ListResponse)
 async def list_transactions(
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=50, ge=1, le=5000),
     db: AsyncSession = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ) -> ListResponse:
@@ -224,6 +297,41 @@ async def create_goal(
     )
 
 
+@router.put("/goals/{goal_id}", response_model=ItemResponse)
+async def update_goal(
+    goal_id: UUID,
+    payload: GoalUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        goal = await ledger_service.update_goal(db, user, goal_id, payload)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Goal updated",
+        data=GoalOut.model_validate(goal).model_dump(mode="json"),
+    )
+
+
+@router.delete("/goals/{goal_id}", response_model=ItemResponse)
+async def delete_goal(
+    goal_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        await ledger_service.delete_goal(db, user, goal_id)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Goal deleted",
+        data={"id": str(goal_id)},
+    )
+
+
 @router.get("/budgets", response_model=ListResponse)
 async def list_budgets(
     db: AsyncSession = Depends(get_db_session),
@@ -266,4 +374,21 @@ async def upsert_budget(
             monthly_limit=budget.monthly_limit,
             spent=0,
         ).model_dump(mode="json"),
+    )
+
+
+@router.delete("/budgets/{budget_id}", response_model=ItemResponse)
+async def delete_budget(
+    budget_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ItemResponse:
+    try:
+        await ledger_service.delete_budget(db, user, budget_id)
+    except LedgerError as exc:
+        raise _ledger_http_error(exc) from exc
+    return ItemResponse(
+        success=True,
+        message="Budget deleted",
+        data={"id": str(budget_id)},
     )

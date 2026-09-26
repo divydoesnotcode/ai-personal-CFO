@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { getApiErrorMessage } from "@/lib/api";
 import { formatDate, formatINR } from "@/lib/format-money";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/ledger-api";
 
 import { TransactionComposer } from "./ledger-forms";
+import { DeleteConfirmDialog, EditDeleteActions } from "./row-actions";
 import { Corners, EmptyBlock, ErrorBlock, Panel, Skeleton } from "./ui";
 
 function isCredit(type: string) {
@@ -190,36 +191,16 @@ export function TransactionsView() {
                             {formatINR(signedVal, true)}
                           </td>
                           <td>
-                            <div
+                            <EditDeleteActions
                               className="dash-tx-actions"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                type="button"
-                                className="dash-icon-btn"
-                                title="Edit transaction"
-                                aria-label="Edit transaction"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingTransaction(tx);
-                                  setDialogOpen(true);
-                                }}
-                              >
-                                <Pencil size={13} aria-hidden="true" />
-                              </button>
-                              <button
-                                type="button"
-                                className="dash-icon-btn dash-icon-btn--danger"
-                                title="Delete transaction"
-                                aria-label="Delete transaction"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeletingTransaction(tx);
-                                }}
-                              >
-                                <Trash2 size={13} aria-hidden="true" />
-                              </button>
-                            </div>
+                              editLabel="Edit transaction"
+                              deleteLabel="Delete transaction"
+                              onEdit={() => {
+                                setEditingTransaction(tx);
+                                setDialogOpen(true);
+                              }}
+                              onDelete={() => setDeletingTransaction(tx)}
+                            />
                           </td>
                         </tr>
                       );
@@ -276,36 +257,16 @@ export function TransactionsView() {
                         <span className="cfo-badge">
                           {tx.transaction_type.replaceAll("_", " ")}
                         </span>
-                        <div
+                        <EditDeleteActions
                           className="dash-tx-card-actions"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            className="dash-icon-btn"
-                            title="Edit transaction"
-                            aria-label="Edit transaction"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingTransaction(tx);
-                              setDialogOpen(true);
-                            }}
-                          >
-                            <Pencil size={13} aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            className="dash-icon-btn dash-icon-btn--danger"
-                            title="Delete transaction"
-                            aria-label="Delete transaction"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeletingTransaction(tx);
-                            }}
-                          >
-                            <Trash2 size={13} aria-hidden="true" />
-                          </button>
-                        </div>
+                          editLabel="Edit transaction"
+                          deleteLabel="Delete transaction"
+                          onEdit={() => {
+                            setEditingTransaction(tx);
+                            setDialogOpen(true);
+                          }}
+                          onDelete={() => setDeletingTransaction(tx)}
+                        />
                       </div>
                     </article>
                   );
@@ -431,29 +392,22 @@ export function TransactionsView() {
 
               {/* Action Buttons */}
               <div className="dash-modal-actions" style={{ marginTop: "1.5rem" }}>
-                <button
-                  type="button"
-                  className="cfo-btn cfo-btn--ghost"
-                  onClick={() => {
+                <EditDeleteActions
+                  variant="labeled"
+                  editLabel="Edit transaction"
+                  deleteLabel="Delete transaction"
+                  onEdit={() => {
                     const tx = viewingTransaction;
                     setViewingTransaction(null);
                     setEditingTransaction(tx);
                     setDialogOpen(true);
                   }}
-                >
-                  <Pencil size={13} aria-hidden="true" /> Edit
-                </button>
-                <button
-                  type="button"
-                  className="cfo-btn cfo-btn--danger"
-                  onClick={() => {
+                  onDelete={() => {
                     const tx = viewingTransaction;
                     setViewingTransaction(null);
                     setDeletingTransaction(tx);
                   }}
-                >
-                  <Trash2 size={13} aria-hidden="true" /> Delete
-                </button>
+                />
                 <button
                   type="button"
                   className="cfo-btn cfo-btn--ghost"
@@ -501,62 +455,24 @@ export function TransactionsView() {
           </>
         ) : null}
 
-        {/* Delete Confirmation Alert Box */}
         {deletingTransaction ? (
-          <>
-            <div
-              className="dash-modal-backdrop"
-              onClick={() => !deleteBusy && setDeletingTransaction(null)}
-              aria-label="Close delete dialog backdrop"
-            />
-            <div
-              className="cfo-panel dash-modal dash-alert-dialog"
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="delete-dialog-title"
-              aria-describedby="delete-dialog-desc"
-            >
-              <Corners accent />
-              <div className="cfo-panel-head">
-                <strong id="delete-dialog-title">Delete transaction</strong>
-                <button
-                  type="button"
-                  className="dash-icon-btn"
-                  aria-label="Close dialog"
-                  onClick={() => setDeletingTransaction(null)}
-                  disabled={deleteBusy}
-                >
-                  ✕
-                </button>
-              </div>
-              <p id="delete-dialog-desc">
+          <DeleteConfirmDialog
+            titleId="delete-dialog-title"
+            title="Delete transaction"
+            busy={deleteBusy}
+            onCancel={() => setDeletingTransaction(null)}
+            onConfirm={handleDeleteConfirm}
+            description={
+              <>
                 Are you sure you want to delete this transaction{" "}
                 <strong>
                   &ldquo;{deletingTransaction.description || deletingTransaction.merchant_name || "Untitled"}&rdquo; (
                   {formatINR(Number(deletingTransaction.amount))})
                 </strong>
                 ? This will update your account balance and cannot be undone.
-              </p>
-              <div className="dash-modal-actions">
-                <button
-                  type="button"
-                  className="cfo-btn cfo-btn--ghost"
-                  onClick={() => setDeletingTransaction(null)}
-                  disabled={deleteBusy}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="cfo-btn cfo-btn--danger"
-                  onClick={handleDeleteConfirm}
-                  disabled={deleteBusy}
-                >
-                  {deleteBusy ? "Deleting…" : "Delete"}
-                </button>
-              </div>
-            </div>
-          </>
+              </>
+            }
+          />
         ) : null}
       </div>
     </div>

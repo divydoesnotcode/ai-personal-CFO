@@ -23,9 +23,12 @@ from backend.app.models.transaction import (
 from backend.app.models.user import User
 from backend.app.schemas.ledger import (
     AccountCreateRequest,
+    AccountUpdateRequest,
     BudgetUpsertRequest,
     CategoryCreateRequest,
+    CategoryUpdateRequest,
     GoalCreateRequest,
+    GoalUpdateRequest,
     TransactionCreateRequest,
     TransactionUpdateRequest,
 )
@@ -127,6 +130,32 @@ async def create_account(
     return account
 
 
+async def update_account(
+    db: AsyncSession,
+    user: User,
+    account_id: UUID,
+    payload: AccountUpdateRequest,
+) -> Account:
+    account = await get_owned_account(db, user, account_id)
+    account.name = payload.name
+    account.account_type = payload.account_type
+    account.description = payload.description
+    account.balance = money(payload.balance)
+    await db.commit()
+    await db.refresh(account)
+    return account
+
+
+async def delete_account(
+    db: AsyncSession,
+    user: User,
+    account_id: UUID,
+) -> None:
+    account = await get_owned_account(db, user, account_id)
+    await db.delete(account)
+    await db.commit()
+
+
 async def ensure_default_account(db: AsyncSession, user: User) -> Account:
     accounts = await list_accounts(db, user)
     if accounts:
@@ -164,6 +193,48 @@ async def create_category(
     await db.commit()
     await db.refresh(category)
     return category
+
+
+async def update_category(
+    db: AsyncSession,
+    user: User,
+    category_id: UUID,
+    payload: CategoryUpdateRequest,
+) -> Category:
+    result = await db.execute(
+        select(Category).where(
+            Category.id == category_id,
+            or_(Category.user_id.is_(None), Category.user_id == user.id),
+        )
+    )
+    category = result.scalar_one_or_none()
+    if category is None:
+        raise LedgerError("Category not found")
+
+    category.name = payload.name
+    category.description = payload.description
+    await db.commit()
+    await db.refresh(category)
+    return category
+
+
+async def delete_category(
+    db: AsyncSession,
+    user: User,
+    category_id: UUID,
+) -> None:
+    result = await db.execute(
+        select(Category).where(
+            Category.id == category_id,
+            or_(Category.user_id.is_(None), Category.user_id == user.id),
+        )
+    )
+    category = result.scalar_one_or_none()
+    if category is None:
+        raise LedgerError("Category not found")
+
+    category.is_active = False
+    await db.commit()
 
 
 async def get_owned_account(
@@ -441,6 +512,58 @@ async def create_goal(
     return goal
 
 
+async def update_goal(
+    db: AsyncSession,
+    user: User,
+    goal_id: UUID,
+    payload: GoalUpdateRequest,
+) -> FinancialGoal:
+    result = await db.execute(
+        select(FinancialGoal).where(
+            FinancialGoal.id == goal_id,
+            FinancialGoal.user_id == user.id,
+        )
+    )
+    goal = result.scalar_one_or_none()
+    if goal is None:
+        raise LedgerError("Goal not found")
+
+    if payload.current_amount > payload.target_amount:
+        raise LedgerError("Current amount cannot exceed the target")
+
+    goal.name = payload.name
+    goal.goal_type = payload.goal_type
+    goal.status = payload.status
+    goal.target_amount = money(payload.target_amount)
+    goal.current_amount = money(payload.current_amount)
+    goal.target_date = payload.target_date
+    goal.description = payload.description
+    goal.is_priority = payload.is_priority
+
+    await db.commit()
+    await db.refresh(goal)
+    return goal
+
+
+async def delete_goal(
+    db: AsyncSession,
+    user: User,
+    goal_id: UUID,
+) -> None:
+    result = await db.execute(
+        select(FinancialGoal).where(
+            FinancialGoal.id == goal_id,
+            FinancialGoal.user_id == user.id,
+        )
+    )
+    goal = result.scalar_one_or_none()
+    if goal is None:
+        raise LedgerError("Goal not found")
+
+    await db.delete(goal)
+    await db.commit()
+
+
 async def list_budgets(db: AsyncSession, user: User) -> list[Budget]:
     result = await db.execute(
         select(Budget)
@@ -481,3 +604,19 @@ async def upsert_budget(
     await db.refresh(budget)
     budget.category = category
     return budget
+
+
+async def delete_budget(
+    db: AsyncSession,
+    user: User,
+    budget_id: UUID,
+) -> None:
+    result = await db.execute(
+        select(Budget).where(Budget.id == budget_id, Budget.user_id == user.id)
+    )
+    budget = result.scalar_one_or_none()
+    if budget is None:
+        raise LedgerError("Budget not found")
+
+    await db.delete(budget)
+    await db.commit()
