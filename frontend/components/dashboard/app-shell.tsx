@@ -219,7 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 initial={{ opacity: reduced ? 1 : 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition{ duration }}
+                transition={{ duration: 0.5 }}
               />
               <motion.aside
                 className="dash-drawer"
