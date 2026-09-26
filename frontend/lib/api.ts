@@ -19,32 +19,20 @@ export const api = axios.create({
 });
 
 // ---------------------------------------------------------------------------
-// Request interceptor — attach in-memory access token
-// ---------------------------------------------------------------------------
-
-api.interceptors.request.use((config) => {
-  const token = getAccessToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// ---------------------------------------------------------------------------
 // Refresh state — single in-flight refresh promise (deduplication)
 // ---------------------------------------------------------------------------
 
 let _refreshPromise: Promise<string | null> | null = null;
 
 /**
- * Call POST /auth/refresh.
+ * Call POST /api/auth/refresh.
  * Returns the new access token, or null if the refresh token is
  * expired/revoked (the user must sign in again).
  *
- * Multiple simultaneous 401 errors share the same promise so we never
+ * Multiple simultaneous calls share the same promise so we never
  * fire more than one refresh request at a time.
  */
-function getOrStartRefresh(): Promise<string | null> {
+export function getOrStartRefresh(): Promise<string | null> {
   if (_refreshPromise) {
     return _refreshPromise;
   }
@@ -71,6 +59,34 @@ function getOrStartRefresh(): Promise<string | null> {
 
   return _refreshPromise;
 }
+
+// ---------------------------------------------------------------------------
+// Request interceptor — attach in-memory access token
+// ---------------------------------------------------------------------------
+
+api.interceptors.request.use(async (config) => {
+  const url = config.url ?? "";
+  const isAuthEndpoint =
+    url.includes("/auth/refresh") ||
+    url.includes("/auth/signin") ||
+    url.includes("/auth/signup") ||
+    url.includes("/auth/signout");
+
+  // If page is initializing/refreshing, wait for the active refresh to finish
+  if (!isAuthEndpoint && _refreshPromise) {
+    try {
+      await _refreshPromise;
+    } catch {
+      // ignore
+    }
+  }
+
+  const token = getAccessToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // ---------------------------------------------------------------------------
 // Response interceptor — silent token refresh on 401

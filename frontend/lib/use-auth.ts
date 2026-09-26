@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
-
-import { api } from "./api";
+import { getOrStartRefresh } from "./api";
 import {
   clearAuthSession,
   getAuthSession,
   getAuthStatus,
   markUnauthenticated,
-  setAuthSession,
   subscribeAuth,
   type AuthSession,
   type AuthStatus,
@@ -46,29 +43,7 @@ function clearClientCaches(): void {
 
 /**
  * Page-load session restore.
- *
- * Strategy (called exactly once per page lifetime):
- *
- * 1. If the in-memory token is already set (e.g. login happened in this tab
- *    before this component mounted), mark initialized and return immediately.
- *
- * 2. Otherwise call POST /auth/refresh.
- *    - The browser automatically sends the ``cfo_refresh_token`` HttpOnly
- *      cookie (path "/api/auth").
- *    - On success: receive a fresh access token + rotated refresh cookie.
- *      Store the access token in memory.
- *    - On 401: the refresh token is absent, expired, or revoked.
- *      Mark the user as unauthenticated.
- *
- * We skip GET /auth/me on page load and go straight to /auth/refresh because:
- *   a) /auth/me only returns PublicUser — it doesn't give us a token to hold
- *      in memory for Bearer-header requests.
- *   b) If the access-token cookie is still valid, /auth/refresh still works
- *      fine (it uses the refresh token cookie, not the access cookie).
- *   c) This is one request instead of potentially two.
- *
- * GET /auth/me is still available for the Axios request interceptor to use
- * after the in-memory token has been established.
+ * Uses unified getOrStartRefresh() to prevent race conditions on token rotation.
  */
 function ensureInitialized(): Promise<void> {
   if (_initialized) return Promise.resolve();
@@ -78,29 +53,14 @@ function ensureInitialized(): Promise<void> {
   }
   if (_initPromise) return _initPromise;
 
-  type RefreshBody = {
-    data: { token: string; user: { id: string; name: string; email: string } };
-  };
-
-  _initPromise = api
-    .post<RefreshBody>("/api/auth/refresh", null)
-    .then((res) => {
-      const { token, user } = res.data.data;
-      if (token && user?.id && user?.email) {
-        setAuthSession({ token, user });
-      } else {
+  _initPromise = getOrStartRefresh()
+    .then((token) => {
+      if (!token) {
         markUnauthenticated();
       }
     })
-    .catch((error: unknown) => {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        // No valid refresh token — user is genuinely unauthenticated.
-        markUnauthenticated();
-      } else {
-        // Network error or server error: fail open so a transient backend
-        // outage doesn't lock users out on refresh.
-        markUnauthenticated();
-      }
+    .catch(() => {
+      markUnauthenticated();
     })
     .finally(() => {
       _initialized = true;
