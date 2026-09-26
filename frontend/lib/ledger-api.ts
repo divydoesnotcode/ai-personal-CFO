@@ -90,11 +90,58 @@ export async function createAccount(payload: {
   return response.data.data;
 }
 
+export async function updateAccount(
+  id: string,
+  payload: {
+    name: string;
+    account_type: string;
+    balance?: number;
+    description?: string;
+  }
+) {
+  const response = await api.put<Envelope<LedgerAccount>>(`/api/accounts/${id}`, payload);
+  invalidateLedgerCache("accounts");
+  return response.data.data;
+}
+
+export async function deleteAccount(id: string) {
+  const response = await api.delete(`/api/accounts/${id}`);
+  invalidateLedgerCache("accounts", "transactions");
+  return response.data.data;
+}
+
 export async function listCategories() {
   return cached("categories", async () => {
     const response = await api.get<Envelope<LedgerCategory[]>>("/api/categories");
     return response.data.data;
   });
+}
+
+export async function createCategory(payload: {
+  name: string;
+  description?: string;
+}) {
+  const response = await api.post<Envelope<LedgerCategory>>("/api/categories", payload);
+  invalidateLedgerCache("categories");
+  return response.data.data;
+}
+
+export async function updateCategory(
+  id: string,
+  payload: {
+    name: string;
+    description?: string;
+  }
+) {
+  const response = await api.put<Envelope<LedgerCategory>>(`/api/categories/${id}`, payload);
+  invalidateLedgerCache("categories");
+  return response.data.data;
+}
+
+export async function deleteCategory(id: string) {
+  const response = await api.delete(`/api/categories/${id}`);
+  invalidateLedgerCache("categories");
+  return response.data.data;
 }
 
 export type LedgerTransaction = {
@@ -183,6 +230,27 @@ export async function createGoal(payload: {
   return response.data.data;
 }
 
+export async function updateGoal(
+  id: string,
+  payload: {
+    name: string;
+    goal_type: string;
+    target_amount: number;
+    current_amount: number;
+    target_date: string;
+  }
+) {
+  const response = await api.put(`/api/goals/${id}`, payload);
+  invalidateLedgerCache("goals");
+  return response.data.data;
+}
+
+export async function deleteGoal(id: string) {
+  const response = await api.delete(`/api/goals/${id}`);
+  invalidateLedgerCache("goals");
+  return response.data.data;
+}
+
 export async function listBudgets() {
   return cached("budgets", async () => {
     const response = await api.get<Envelope<LedgerBudget[]>>("/api/budgets");
@@ -195,6 +263,12 @@ export async function upsertBudget(payload: {
   monthly_limit: number;
 }) {
   const response = await api.put("/api/budgets", payload);
+  invalidateLedgerCache("budgets");
+  return response.data.data;
+}
+
+export async function deleteBudget(id: string) {
+  const response = await api.delete(`/api/budgets/${id}`);
   invalidateLedgerCache("budgets");
   return response.data.data;
 }

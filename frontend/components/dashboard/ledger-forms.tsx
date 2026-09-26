@@ -7,7 +7,9 @@ import { getApiErrorMessage } from "@/lib/api";
 import { invalidateDashboardCache } from "@/lib/dashboard/use-dashboard";
 import {
   createAccount,
+  updateAccount,
   createGoal,
+  updateGoal,
   createTransaction,
   updateTransaction,
   listAccounts,
@@ -15,6 +17,7 @@ import {
   listGoals,
   upsertBudget,
   type LedgerAccount,
+  type LedgerBudget,
   type LedgerCategory,
   type LedgerGoal,
   type LedgerTransaction,
@@ -291,26 +294,32 @@ export function TransactionComposer({
   );
 }
 
-export function GoalComposer() {
+export function GoalComposer({
+  goal = null,
+  onSuccess,
+  onCancel,
+  redirectToDashboard = true,
+}: {
+  goal?: LedgerGoal | null;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  redirectToDashboard?: boolean;
+} = {}) {
   const router = useRouter();
-  const [goals, setGoals] = useState<LedgerGoal[]>([]);
-  const [name, setName] = useState("");
-  const [goalType, setGoalType] = useState("savings");
-  const [target, setTarget] = useState("");
-  const [current, setCurrent] = useState("0");
-  const [targetDate, setTargetDate] = useState("");
+  const [name, setName] = useState(goal?.name ?? "");
+  const [goalType, setGoalType] = useState(goal?.goal_type ?? "savings");
+  const [target, setTarget] = useState(
+    goal ? String(Number(goal.target_amount)) : ""
+  );
+  const [current, setCurrent] = useState(
+    goal ? String(Number(goal.current_amount)) : "0"
+  );
+  const [targetDate, setTargetDate] = useState(
+    goal?.target_date ? goal.target_date.slice(0, 10) : ""
+  );
   const [busy, setBusy] = useState(false);
   const [tone, setTone] = useState<"idle" | "error" | "ok">("idle");
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    listGoals()
-      .then(setGoals)
-      .catch((error) => {
-        setTone("error");
-        setMessage(getApiErrorMessage(error, "Unable to load goals"));
-      });
-  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -321,25 +330,48 @@ export function GoalComposer() {
       setMessage("Name, target amount, and date are required");
       return;
     }
+    if (currentAmount > targetAmount) {
+      setTone("error");
+      setMessage("Current amount cannot exceed the target amount");
+      return;
+    }
     setBusy(true);
+    setMessage("");
     try {
-      await createGoal({
+      const payload = {
         name: name.trim(),
         goal_type: goalType,
         target_amount: targetAmount,
         current_amount: Number.isFinite(currentAmount) ? currentAmount : 0,
         target_date: targetDate,
-      });
+      };
+      if (goal) {
+        await updateGoal(goal.id, payload);
+      } else {
+        await createGoal(payload);
+      }
       invalidateDashboardCache();
-      setName("");
-      setTarget("");
-      setCurrent("0");
       setTone("ok");
-      setMessage("Goal saved");
-      router.push("/dashboard");
+      setMessage(goal ? "Goal updated" : "Goal saved");
+      if (!goal) {
+        setName("");
+        setTarget("");
+        setCurrent("0");
+        setTargetDate("");
+      }
+      if (onSuccess) {
+        onSuccess();
+      } else if (redirectToDashboard) {
+        router.push("/dashboard");
+      }
     } catch (error) {
       setTone("error");
-      setMessage(getApiErrorMessage(error, "Unable to save the goal"));
+      setMessage(
+        getApiErrorMessage(
+          error,
+          goal ? "Unable to update the goal" : "Unable to save the goal"
+        )
+      );
     } finally {
       setBusy(false);
     }
@@ -349,22 +381,20 @@ export function GoalComposer() {
     <section className="cfo-panel dash-panel">
       <Corners accent />
       <div className="cfo-panel-head">
-        <strong>Add a goal</strong>
-        <span>TARGET</span>
+        <strong>{goal ? "Edit goal" : "Add a goal"}</strong>
+        {onCancel ? (
+          <button
+            type="button"
+            className="dash-icon-btn"
+            aria-label="Close dialog"
+            onClick={onCancel}
+          >
+            ✕
+          </button>
+        ) : (
+          <span>TARGET</span>
+        )}
       </div>
-      {goals.length > 0 ? (
-        <ul className="dash-ledger-list">
-          {goals.map((goal) => (
-            <li key={goal.id}>
-              <span>{goal.name}</span>
-              <b>
-                ₹{Number(goal.current_amount).toLocaleString("en-IN")} / ₹
-                {Number(goal.target_amount).toLocaleString("en-IN")}
-              </b>
-            </li>
-          ))}
-        </ul>
-      ) : null}
       <form className="cfo-form dash-ledger-form" onSubmit={onSubmit}>
         <Field label="Name">
           <input className="cfo-input" value={name} onChange={(event) => setName(event.target.value)} required />
@@ -393,7 +423,7 @@ export function GoalComposer() {
         </Field>
         <FormStatus tone={tone} message={message} />
         <button type="submit" className="cfo-btn cfo-btn--ghost" disabled={busy}>
-          {busy ? "Saving…" : "Save goal"}
+          {busy ? "Saving…" : goal ? "Save changes" : "Save goal"}
         </button>
       </form>
     </section>
@@ -401,18 +431,22 @@ export function GoalComposer() {
 }
 
 export function BudgetComposer({
+  budget = null,
   onSuccess,
   onCancel,
   redirectToDashboard = true,
 }: {
+  budget?: LedgerBudget | null;
   onSuccess?: () => void;
   onCancel?: () => void;
   redirectToDashboard?: boolean;
 } = {}) {
   const router = useRouter();
   const [categories, setCategories] = useState<LedgerCategory[]>([]);
-  const [categoryId, setCategoryId] = useState("");
-  const [limit, setLimit] = useState("");
+  const [categoryId, setCategoryId] = useState(budget?.category_id ?? "");
+  const [limit, setLimit] = useState(
+    budget ? String(Number(budget.monthly_limit)) : ""
+  );
   const [busy, setBusy] = useState(false);
   const [tone, setTone] = useState<"idle" | "error" | "ok">("idle");
   const [message, setMessage] = useState("");
@@ -424,7 +458,7 @@ export function BudgetComposer({
         if (cancelled) return;
         const spendCategories = nextCategories.filter((item) => item.name !== "Income");
         setCategories(spendCategories);
-        if (spendCategories[0]) setCategoryId(spendCategories[0].id);
+        setCategoryId((current) => current || spendCategories[0]?.id || "");
       })
       .catch((error) => {
         if (cancelled) return;
@@ -459,17 +493,34 @@ export function BudgetComposer({
       }
     } catch (error) {
       setTone("error");
-      setMessage(getApiErrorMessage(error, "Unable to save the budget"));
+      setMessage(
+        getApiErrorMessage(
+          error,
+          budget ? "Unable to update the budget" : "Unable to save the budget"
+        )
+      );
     } finally {
       setBusy(false);
     }
   }
 
+  const categoryOptions =
+    budget && !categories.some((item) => item.id === budget.category_id)
+      ? [
+          {
+            id: budget.category_id,
+            name: budget.category_name,
+            is_system: true,
+          },
+          ...categories,
+        ]
+      : categories;
+
   return (
     <section className="cfo-panel dash-panel">
       <Corners accent />
       <div className="cfo-panel-head">
-        <strong>Add a budget</strong>
+        <strong>{budget ? "Edit budget" : "Add a budget"}</strong>
         {onCancel ? (
           <button
             type="button"
@@ -485,8 +536,13 @@ export function BudgetComposer({
       </div>
       <form className="cfo-form dash-ledger-form" onSubmit={onSubmit}>
         <Field label="Category">
-          <select className="cfo-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-            {categories.map((category) => (
+          <select
+            className="cfo-input"
+            value={categoryId}
+            disabled={Boolean(budget)}
+            onChange={(event) => setCategoryId(event.target.value)}
+          >
+            {categoryOptions.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
@@ -498,7 +554,7 @@ export function BudgetComposer({
         </Field>
         <FormStatus tone={tone} message={message} />
         <button type="submit" className="cfo-btn cfo-btn--ghost" disabled={busy}>
-          {busy ? "Saving…" : "Save budget"}
+          {busy ? "Saving…" : budget ? "Save changes" : "Save budget"}
         </button>
       </form>
     </section>
@@ -506,16 +562,26 @@ export function BudgetComposer({
 }
 
 export function AccountComposer({
+  account = null,
   defaultType = "bank",
   title = "Add an account",
+  onSuccess,
+  onCancel,
+  redirectToDashboard = true,
 }: {
+  account?: LedgerAccount | null;
   defaultType?: string;
   title?: string;
-}) {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  redirectToDashboard?: boolean;
+} = {}) {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [accountType, setAccountType] = useState(defaultType);
-  const [balance, setBalance] = useState("0");
+  const [name, setName] = useState(account?.name ?? "");
+  const [accountType, setAccountType] = useState(account?.account_type ?? defaultType);
+  const [balance, setBalance] = useState(
+    account ? String(Number(account.balance)) : "0"
+  );
   const [busy, setBusy] = useState(false);
   const [tone, setTone] = useState<"idle" | "error" | "ok">("idle");
   const [message, setMessage] = useState("");
@@ -529,20 +595,38 @@ export function AccountComposer({
       return;
     }
     setBusy(true);
+    setMessage("");
     try {
-      await createAccount({
+      const payload = {
         name: name.trim(),
         account_type: accountType,
         balance: Number.isFinite(opening) ? opening : 0,
-      });
+      };
+      if (account) {
+        await updateAccount(account.id, payload);
+      } else {
+        await createAccount(payload);
+      }
       invalidateDashboardCache();
       setTone("ok");
-      setMessage("Account created");
-      setName("");
-      router.push("/dashboard");
+      setMessage(account ? "Account updated" : "Account created");
+      if (!account) {
+        setName("");
+        setBalance("0");
+      }
+      if (onSuccess) {
+        onSuccess();
+      } else if (redirectToDashboard) {
+        router.push("/dashboard");
+      }
     } catch (error) {
       setTone("error");
-      setMessage(getApiErrorMessage(error, "Unable to create the account"));
+      setMessage(
+        getApiErrorMessage(
+          error,
+          account ? "Unable to update the account" : "Unable to create the account"
+        )
+      );
     } finally {
       setBusy(false);
     }
@@ -552,8 +636,19 @@ export function AccountComposer({
     <section className="cfo-panel dash-panel">
       <Corners accent />
       <div className="cfo-panel-head">
-        <strong>{title}</strong>
-        <span>ACCOUNT</span>
+        <strong>{account ? "Edit account" : title}</strong>
+        {onCancel ? (
+          <button
+            type="button"
+            className="dash-icon-btn"
+            aria-label="Close dialog"
+            onClick={onCancel}
+          >
+            ✕
+          </button>
+        ) : (
+          <span>ACCOUNT</span>
+        )}
       </div>
       <form className="cfo-form dash-ledger-form" onSubmit={onSubmit}>
         <Field label="Name">
@@ -569,12 +664,12 @@ export function AccountComposer({
             <option value="loan">Loan</option>
           </select>
         </Field>
-        <Field label="Opening balance (₹)">
+        <Field label={account ? "Current balance (₹)" : "Opening balance (₹)"}>
           <input className="cfo-input" type="number" min="0" step="0.01" value={balance} onChange={(event) => setBalance(event.target.value)} />
         </Field>
         <FormStatus tone={tone} message={message} />
         <button type="submit" className="cfo-btn cfo-btn--ghost" disabled={busy}>
-          {busy ? "Saving…" : "Create account"}
+          {busy ? "Saving…" : account ? "Save changes" : "Create account"}
         </button>
       </form>
     </section>

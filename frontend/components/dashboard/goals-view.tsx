@@ -5,30 +5,30 @@ import { Plus } from "lucide-react";
 
 import { getApiErrorMessage } from "@/lib/api";
 import { invalidateDashboardCache } from "@/lib/dashboard/use-dashboard";
-import { formatINR } from "@/lib/format-money";
-import { deleteBudget, listBudgets, type LedgerBudget } from "@/lib/ledger-api";
+import { formatDate, formatINR } from "@/lib/format-money";
+import { deleteGoal, listGoals, type LedgerGoal } from "@/lib/ledger-api";
 
-import { BudgetComposer } from "./ledger-forms";
+import { GoalComposer } from "./ledger-forms";
 import { DeleteConfirmDialog, EditDeleteActions } from "./row-actions";
 import { EmptyBlock, ErrorBlock, Panel, Skeleton } from "./ui";
 
-export function BudgetsView() {
-  const [budgets, setBudgets] = useState<LedgerBudget[]>([]);
+export function GoalsView() {
+  const [goals, setGoals] = useState<LedgerGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<LedgerBudget | null>(null);
-  const [deletingBudget, setDeletingBudget] = useState<LedgerBudget | null>(null);
+  const [editingGoal, setEditingGoal] = useState<LedgerGoal | null>(null);
+  const [deletingGoal, setDeletingGoal] = useState<LedgerGoal | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const loadBudgets = useCallback(async () => {
+  const loadGoals = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listBudgets();
-      setBudgets(data || []);
+      const data = await listGoals();
+      setGoals(data || []);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to load budgets"));
+      setError(getApiErrorMessage(err, "Unable to load goals"));
     } finally {
       setLoading(false);
     }
@@ -36,14 +36,14 @@ export function BudgetsView() {
 
   useEffect(() => {
     let cancelled = false;
-    listBudgets()
+    listGoals()
       .then((data) => {
         if (cancelled) return;
-        setBudgets(data || []);
+        setGoals(data || []);
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(getApiErrorMessage(err, "Unable to load budgets"));
+        setError(getApiErrorMessage(err, "Unable to load goals"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -54,30 +54,30 @@ export function BudgetsView() {
   }, []);
 
   useEffect(() => {
-    if (!dialogOpen && !deletingBudget) return;
+    if (!dialogOpen && !deletingGoal) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (deletingBudget && !deleteBusy) {
-        setDeletingBudget(null);
+      if (deletingGoal && !deleteBusy) {
+        setDeletingGoal(null);
       } else if (dialogOpen) {
         setDialogOpen(false);
-        setEditingBudget(null);
+        setEditingGoal(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dialogOpen, deletingBudget, deleteBusy]);
+  }, [dialogOpen, deletingGoal, deleteBusy]);
 
   const handleDeleteConfirm = async () => {
-    if (!deletingBudget) return;
+    if (!deletingGoal) return;
     setDeleteBusy(true);
     try {
-      await deleteBudget(deletingBudget.id);
+      await deleteGoal(deletingGoal.id);
       invalidateDashboardCache();
-      setDeletingBudget(null);
-      loadBudgets();
+      setDeletingGoal(null);
+      loadGoals();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to delete budget"));
+      setError(getApiErrorMessage(err, "Unable to delete goal"));
     } finally {
       setDeleteBusy(false);
     }
@@ -88,35 +88,35 @@ export function BudgetsView() {
       <div className="dash-subpage dash-subpage--wide">
         <div className="dash-page-header">
           <div>
-            <p className="cfo-kicker">Limits</p>
-            <h1>Budgets</h1>
-            <p>Set monthly ceilings by category. Overruns surface as quiet warnings on the dashboard.</p>
+            <p className="cfo-kicker">Targets</p>
+            <h1>Financial Goals</h1>
+            <p>Name the target, the amount, and the date. The dashboard tracks whether you are on pace.</p>
           </div>
           <button
             type="button"
             className="cfo-btn cfo-btn--ghost"
             onClick={() => {
-              setEditingBudget(null);
+              setEditingGoal(null);
               setDialogOpen(true);
             }}
           >
-            <Plus size={14} aria-hidden="true" /> Add Budget
+            <Plus size={14} aria-hidden="true" /> Add Goal
           </button>
         </div>
 
         <Panel
-          title="Monthly limits"
-          meta={<span>{budgets.length} TOTAL</span>}
+          title="All Goals"
+          meta={<span>{goals.length} TOTAL</span>}
           accent
         >
           {error ? (
-            <ErrorBlock message={error} onRetry={loadBudgets} />
+            <ErrorBlock message={error} onRetry={loadGoals} />
           ) : loading ? (
             <Skeleton lines={6} />
-          ) : budgets.length === 0 ? (
+          ) : goals.length === 0 ? (
             <EmptyBlock
-              title="No monthly limits yet"
-              body="Add a category ceiling to see how the month is tracking."
+              title="No goals yet"
+              body="Add a goal to track your milestones and savings pace."
             />
           ) : (
             <>
@@ -124,25 +124,35 @@ export function BudgetsView() {
                 <table className="dash-table">
                   <thead>
                     <tr>
-                      <th>Category</th>
-                      <th>Monthly limit</th>
+                      <th>Goal</th>
+                      <th>Type</th>
+                      <th>Target</th>
+                      <th>Current</th>
+                      <th>Target Date</th>
                       <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {budgets.map((budget) => (
-                      <tr key={budget.id}>
-                        <td>{budget.category_name}</td>
-                        <td>{formatINR(Number(budget.monthly_limit))}</td>
+                    {goals.map((goal) => (
+                      <tr key={goal.id}>
+                        <td>{goal.name}</td>
+                        <td>
+                          <span className="cfo-badge">
+                            {goal.goal_type.replaceAll("_", " ")}
+                          </span>
+                        </td>
+                        <td>{formatINR(Number(goal.target_amount))}</td>
+                        <td>{formatINR(Number(goal.current_amount))}</td>
+                        <td>{formatDate(goal.target_date)}</td>
                         <td style={{ textAlign: "right" }}>
                           <EditDeleteActions
-                            editLabel="Edit budget"
-                            deleteLabel="Delete budget"
+                            editLabel="Edit goal"
+                            deleteLabel="Delete goal"
                             onEdit={() => {
-                              setEditingBudget(budget);
+                              setEditingGoal(goal);
                               setDialogOpen(true);
                             }}
-                            onDelete={() => setDeletingBudget(budget)}
+                            onDelete={() => setDeletingGoal(goal)}
                           />
                         </td>
                       </tr>
@@ -152,27 +162,32 @@ export function BudgetsView() {
               </div>
 
               <div className="dash-tx-cards">
-                {budgets.map((budget) => (
-                  <article key={budget.id} className="cfo-card dash-tx-card">
+                {goals.map((goal) => (
+                  <article key={goal.id} className="cfo-card dash-tx-card">
                     <div className="dash-tx-card-head">
-                      <span className="dash-tx-card-date">Monthly limit</span>
+                      <span className="dash-tx-card-date">
+                        Target: {formatDate(goal.target_date)}
+                      </span>
                       <span className="dash-tx-card-amount">
-                        {formatINR(Number(budget.monthly_limit))}
+                        {formatINR(Number(goal.target_amount))}
                       </span>
                     </div>
                     <div className="dash-tx-card-body">
-                      <strong className="dash-tx-card-desc">{budget.category_name}</strong>
+                      <strong className="dash-tx-card-desc">{goal.name}</strong>
+                      <p style={{ marginTop: "0.25rem", fontSize: "0.82rem", color: "var(--cfo-ink-dim)" }}>
+                        Current: {formatINR(Number(goal.current_amount))} · <span className="cfo-badge" style={{ textTransform: "capitalize" }}>{goal.goal_type.replaceAll("_", " ")}</span>
+                      </p>
                     </div>
                     <div className="dash-tx-card-footer">
                       <EditDeleteActions
                         className="dash-tx-card-actions"
-                        editLabel="Edit budget"
-                        deleteLabel="Delete budget"
+                        editLabel="Edit goal"
+                        deleteLabel="Delete goal"
                         onEdit={() => {
-                          setEditingBudget(budget);
+                          setEditingGoal(goal);
                           setDialogOpen(true);
                         }}
-                        onDelete={() => setDeletingBudget(budget)}
+                        onDelete={() => setDeletingGoal(goal)}
                       />
                     </div>
                   </article>
@@ -188,7 +203,7 @@ export function BudgetsView() {
               className="dash-modal-backdrop"
               onClick={() => {
                 setDialogOpen(false);
-                setEditingBudget(null);
+                setEditingGoal(null);
               }}
               aria-label="Close dialog backdrop"
             />
@@ -196,19 +211,19 @@ export function BudgetsView() {
               className="dash-modal"
               role="dialog"
               aria-modal="true"
-              aria-label={editingBudget ? "Edit budget" : "Add a budget"}
+              aria-label={editingGoal ? "Edit goal" : "Add a goal"}
             >
-              <BudgetComposer
-                key={editingBudget ? editingBudget.id : "new"}
-                budget={editingBudget}
+              <GoalComposer
+                key={editingGoal ? editingGoal.id : "new"}
+                goal={editingGoal}
                 onSuccess={() => {
                   setDialogOpen(false);
-                  setEditingBudget(null);
-                  loadBudgets();
+                  setEditingGoal(null);
+                  loadGoals();
                 }}
                 onCancel={() => {
                   setDialogOpen(false);
-                  setEditingBudget(null);
+                  setEditingGoal(null);
                 }}
                 redirectToDashboard={false}
               />
@@ -216,21 +231,21 @@ export function BudgetsView() {
           </>
         ) : null}
 
-        {deletingBudget ? (
+        {deletingGoal ? (
           <DeleteConfirmDialog
-            titleId="delete-budget-title"
-            title="Delete budget"
+            titleId="delete-goal-title"
+            title="Delete goal"
             busy={deleteBusy}
-            onCancel={() => setDeletingBudget(null)}
+            onCancel={() => setDeletingGoal(null)}
             onConfirm={handleDeleteConfirm}
             description={
               <>
                 Are you sure you want to delete the{" "}
                 <strong>
-                  {deletingBudget.category_name} budget (
-                  {formatINR(Number(deletingBudget.monthly_limit))})
+                  {deletingGoal.name} goal (
+                  {formatINR(Number(deletingGoal.target_amount))})
                 </strong>
-                ? This removes the monthly ceiling and cannot be undone.
+                ? This removes the goal target and cannot be undone.
               </>
             }
           />

@@ -28,6 +28,21 @@ class AccountCreateRequest(BaseModel):
         return name
 
 
+class AccountUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    account_type: AccountType
+    description: str | None = Field(default=None, max_length=2000)
+    balance: Decimal = Field(default=Decimal("0"), ge=0)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        name = " ".join(value.split())
+        if not name:
+            raise ValueError("Enter an account name")
+        return name
+
+
 class AccountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,6 +55,19 @@ class AccountOut(BaseModel):
 
 
 class CategoryCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        name = " ".join(value.split())
+        if not name:
+            raise ValueError("Enter a category name")
+        return name
+
+
+class CategoryUpdateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=2000)
 
@@ -108,6 +136,25 @@ class GoalCreateRequest(BaseModel):
     target_date: date
     description: str | None = Field(default=None, max_length=2000)
     is_priority: bool = False
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        name = " ".join(value.split())
+        if not name:
+            raise ValueError("Enter a goal name")
+        return name
+
+
+class GoalUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    goal_type: GoalType = GoalType.SAVINGS
+    target_amount: Decimal = Field(gt=0)
+    current_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    target_date: date
+    description: str | None = Field(default=None, max_length=2000)
+    is_priority: bool = False
+    status: GoalStatus = GoalStatus.ACTIVE
 
     @field_validator("name")
     @classmethod

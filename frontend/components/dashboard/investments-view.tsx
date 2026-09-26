@@ -6,29 +6,32 @@ import { Plus } from "lucide-react";
 import { getApiErrorMessage } from "@/lib/api";
 import { invalidateDashboardCache } from "@/lib/dashboard/use-dashboard";
 import { formatINR } from "@/lib/format-money";
-import { deleteBudget, listBudgets, type LedgerBudget } from "@/lib/ledger-api";
+import { deleteAccount, listAccounts, type LedgerAccount } from "@/lib/ledger-api";
 
-import { BudgetComposer } from "./ledger-forms";
+import { AccountComposer } from "./ledger-forms";
 import { DeleteConfirmDialog, EditDeleteActions } from "./row-actions";
 import { EmptyBlock, ErrorBlock, Panel, Skeleton } from "./ui";
 
-export function BudgetsView() {
-  const [budgets, setBudgets] = useState<LedgerBudget[]>([]);
+export function InvestmentsView() {
+  const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<LedgerBudget | null>(null);
-  const [deletingBudget, setDeletingBudget] = useState<LedgerBudget | null>(null);
+  const [editingAccount, setEditingAccount] = useState<LedgerAccount | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<LedgerAccount | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const loadBudgets = useCallback(async () => {
+  const loadAccounts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listBudgets();
-      setBudgets(data || []);
+      const data = await listAccounts();
+      const investmentAccounts = (data || []).filter(
+        (acc) => acc.account_type === "investment"
+      );
+      setAccounts(investmentAccounts);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to load budgets"));
+      setError(getApiErrorMessage(err, "Unable to load investments"));
     } finally {
       setLoading(false);
     }
@@ -36,14 +39,17 @@ export function BudgetsView() {
 
   useEffect(() => {
     let cancelled = false;
-    listBudgets()
+    listAccounts()
       .then((data) => {
         if (cancelled) return;
-        setBudgets(data || []);
+        const investmentAccounts = (data || []).filter(
+          (acc) => acc.account_type === "investment"
+        );
+        setAccounts(investmentAccounts);
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(getApiErrorMessage(err, "Unable to load budgets"));
+        setError(getApiErrorMessage(err, "Unable to load investments"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -54,69 +60,81 @@ export function BudgetsView() {
   }, []);
 
   useEffect(() => {
-    if (!dialogOpen && !deletingBudget) return;
+    if (!dialogOpen && !deletingAccount) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (deletingBudget && !deleteBusy) {
-        setDeletingBudget(null);
+      if (deletingAccount && !deleteBusy) {
+        setDeletingAccount(null);
       } else if (dialogOpen) {
         setDialogOpen(false);
-        setEditingBudget(null);
+        setEditingAccount(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dialogOpen, deletingBudget, deleteBusy]);
+  }, [dialogOpen, deletingAccount, deleteBusy]);
 
   const handleDeleteConfirm = async () => {
-    if (!deletingBudget) return;
+    if (!deletingAccount) return;
     setDeleteBusy(true);
     try {
-      await deleteBudget(deletingBudget.id);
+      await deleteAccount(deletingAccount.id);
       invalidateDashboardCache();
-      setDeletingBudget(null);
-      loadBudgets();
+      setDeletingAccount(null);
+      loadAccounts();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to delete budget"));
+      setError(getApiErrorMessage(err, "Unable to delete investment"));
     } finally {
       setDeleteBusy(false);
     }
   };
+
+  const totalValue = accounts.reduce(
+    (sum, acc) => sum + Number(acc.balance || 0),
+    0
+  );
 
   return (
     <div className="dash-content-inner">
       <div className="dash-subpage dash-subpage--wide">
         <div className="dash-page-header">
           <div>
-            <p className="cfo-kicker">Limits</p>
-            <h1>Budgets</h1>
-            <p>Set monthly ceilings by category. Overruns surface as quiet warnings on the dashboard.</p>
+            <p className="cfo-kicker">Portfolio</p>
+            <h1>Investments</h1>
+            <p>
+              Add an investment account so the dashboard can weigh allocation against
+              cash, debt, and goals.
+            </p>
           </div>
           <button
             type="button"
             className="cfo-btn cfo-btn--ghost"
             onClick={() => {
-              setEditingBudget(null);
+              setEditingAccount(null);
               setDialogOpen(true);
             }}
           >
-            <Plus size={14} aria-hidden="true" /> Add Budget
+            <Plus size={14} aria-hidden="true" /> Add Investment
           </button>
         </div>
 
         <Panel
-          title="Monthly limits"
-          meta={<span>{budgets.length} TOTAL</span>}
+          title="Investment Holdings"
+          meta={
+            <span>
+              {accounts.length} TOTAL · {formatINR(totalValue)}
+            </span>
+          }
           accent
         >
           {error ? (
-            <ErrorBlock message={error} onRetry={loadBudgets} />
+            <ErrorBlock message={error} onRetry={loadAccounts} />
           ) : loading ? (
             <Skeleton lines={6} />
-          ) : budgets.length === 0 ? (
+          ) : accounts.length === 0 ? (
             <EmptyBlock
-              title="No monthly limits yet"
-              body="Add a category ceiling to see how the month is tracking."
+              title="No investment accounts yet"
+              body="Connect your investment holdings to unlock portfolio allocation and tracking."
             />
           ) : (
             <>
@@ -124,25 +142,33 @@ export function BudgetsView() {
                 <table className="dash-table">
                   <thead>
                     <tr>
-                      <th>Category</th>
-                      <th>Monthly limit</th>
+                      <th>Account / Holding</th>
+                      <th>Type</th>
+                      <th style={{ textAlign: "right" }}>Balance</th>
                       <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {budgets.map((budget) => (
-                      <tr key={budget.id}>
-                        <td>{budget.category_name}</td>
-                        <td>{formatINR(Number(budget.monthly_limit))}</td>
+                    {accounts.map((account) => (
+                      <tr key={account.id}>
+                        <td>{account.name}</td>
+                        <td>
+                          <span className="cfo-badge">
+                            {account.account_type.replaceAll("_", " ")}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "right", fontFamily: "var(--cfo-mono)" }}>
+                          {formatINR(Number(account.balance))}
+                        </td>
                         <td style={{ textAlign: "right" }}>
                           <EditDeleteActions
-                            editLabel="Edit budget"
-                            deleteLabel="Delete budget"
+                            editLabel="Edit investment"
+                            deleteLabel="Delete investment"
                             onEdit={() => {
-                              setEditingBudget(budget);
+                              setEditingAccount(account);
                               setDialogOpen(true);
                             }}
-                            onDelete={() => setDeletingBudget(budget)}
+                            onDelete={() => setDeletingAccount(account)}
                           />
                         </td>
                       </tr>
@@ -152,27 +178,27 @@ export function BudgetsView() {
               </div>
 
               <div className="dash-tx-cards">
-                {budgets.map((budget) => (
-                  <article key={budget.id} className="cfo-card dash-tx-card">
+                {accounts.map((account) => (
+                  <article key={account.id} className="cfo-card dash-tx-card">
                     <div className="dash-tx-card-head">
-                      <span className="dash-tx-card-date">Monthly limit</span>
+                      <span className="dash-tx-card-date">Investment</span>
                       <span className="dash-tx-card-amount">
-                        {formatINR(Number(budget.monthly_limit))}
+                        {formatINR(Number(account.balance))}
                       </span>
                     </div>
                     <div className="dash-tx-card-body">
-                      <strong className="dash-tx-card-desc">{budget.category_name}</strong>
+                      <strong className="dash-tx-card-desc">{account.name}</strong>
                     </div>
                     <div className="dash-tx-card-footer">
                       <EditDeleteActions
                         className="dash-tx-card-actions"
-                        editLabel="Edit budget"
-                        deleteLabel="Delete budget"
+                        editLabel="Edit investment"
+                        deleteLabel="Delete investment"
                         onEdit={() => {
-                          setEditingBudget(budget);
+                          setEditingAccount(account);
                           setDialogOpen(true);
                         }}
-                        onDelete={() => setDeletingBudget(budget)}
+                        onDelete={() => setDeletingAccount(account)}
                       />
                     </div>
                   </article>
@@ -188,7 +214,7 @@ export function BudgetsView() {
               className="dash-modal-backdrop"
               onClick={() => {
                 setDialogOpen(false);
-                setEditingBudget(null);
+                setEditingAccount(null);
               }}
               aria-label="Close dialog backdrop"
             />
@@ -196,19 +222,21 @@ export function BudgetsView() {
               className="dash-modal"
               role="dialog"
               aria-modal="true"
-              aria-label={editingBudget ? "Edit budget" : "Add a budget"}
+              aria-label={editingAccount ? "Edit investment" : "Connect holdings"}
             >
-              <BudgetComposer
-                key={editingBudget ? editingBudget.id : "new"}
-                budget={editingBudget}
+              <AccountComposer
+                key={editingAccount ? editingAccount.id : "new"}
+                account={editingAccount}
+                defaultType="investment"
+                title="Connect holdings"
                 onSuccess={() => {
                   setDialogOpen(false);
-                  setEditingBudget(null);
-                  loadBudgets();
+                  setEditingAccount(null);
+                  loadAccounts();
                 }}
                 onCancel={() => {
                   setDialogOpen(false);
-                  setEditingBudget(null);
+                  setEditingAccount(null);
                 }}
                 redirectToDashboard={false}
               />
@@ -216,21 +244,21 @@ export function BudgetsView() {
           </>
         ) : null}
 
-        {deletingBudget ? (
+        {deletingAccount ? (
           <DeleteConfirmDialog
-            titleId="delete-budget-title"
-            title="Delete budget"
+            titleId="delete-investment-title"
+            title="Delete investment account"
             busy={deleteBusy}
-            onCancel={() => setDeletingBudget(null)}
+            onCancel={() => setDeletingAccount(null)}
             onConfirm={handleDeleteConfirm}
             description={
               <>
                 Are you sure you want to delete the{" "}
                 <strong>
-                  {deletingBudget.category_name} budget (
-                  {formatINR(Number(deletingBudget.monthly_limit))})
+                  {deletingAccount.name} account (
+                  {formatINR(Number(deletingAccount.balance))})
                 </strong>
-                ? This removes the monthly ceiling and cannot be undone.
+                ? This removes the account and cannot be undone.
               </>
             }
           />
