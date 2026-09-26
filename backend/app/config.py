@@ -7,8 +7,9 @@ All environment-dependent configuration should be centralized here.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -63,6 +64,18 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:5678",
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",") if i.strip()]
+        elif isinstance(v, (list, str)):
+            return v
+        return [
+            "http://localhost:3000",
+            "http://localhost:5678",
+        ]
 
     model_config = SettingsConfigDict(
         env_file=".env",

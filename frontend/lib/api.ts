@@ -3,6 +3,7 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import {
   clearAuthSession,
   getAccessToken,
+  getRefreshToken,
   setAuthSession,
 } from "./auth-storage";
 
@@ -37,19 +38,31 @@ export function getOrStartRefresh(): Promise<string | null> {
     return _refreshPromise;
   }
 
+  const currentRefreshToken = getRefreshToken();
+
   _refreshPromise = axios
-    .post<{ data: { token: string; user: { id: string; name: string; email: string } } }>(
+    .post<{
+      data: {
+        token: string;
+        refresh_token?: string;
+        user: { id: string; name: string; email: string };
+      };
+    }>(
       `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/auth/refresh`,
-      null,
+      currentRefreshToken ? { refresh_token: currentRefreshToken } : {},
       { withCredentials: true },
     )
     .then((res) => {
-      const { token, user } = res.data.data;
-      setAuthSession({ token, user });
+      const { token, refresh_token, user } = res.data.data;
+      setAuthSession({
+        token,
+        refreshToken: refresh_token ?? currentRefreshToken,
+        user,
+      });
       return token;
     })
     .catch(() => {
-      // Refresh token expired or revoked — clear in-memory session.
+      // Refresh token expired or revoked — clear session.
       clearAuthSession();
       return null;
     })

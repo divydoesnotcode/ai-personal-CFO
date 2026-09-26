@@ -10,6 +10,7 @@ from backend.app.config import settings
 from backend.app.database import get_db_session
 from backend.app.schemas.auth import (
     PublicUser,
+    RefreshRequest,
     SigninData,
     SigninRequest,
     SigninResponse,
@@ -36,6 +37,7 @@ from backend.app.utils.security import (
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 _IS_PROD = settings.ENVIRONMENT.lower() == "production"
+_COOKIE_SAMESITE = "none" if _IS_PROD else "lax"
 
 
 def _error(status_code: int, message: str) -> JSONResponse:
@@ -55,7 +57,7 @@ def _set_access_cookie(response: Response, token: str) -> None:
         value=token,
         httponly=True,
         secure=_IS_PROD,
-        samesite="lax",
+        samesite=_COOKIE_SAMESITE,
         max_age=access_token_cookie_max_age(),
         path="/",
     )
@@ -68,36 +70,30 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         value=token,
         httponly=True,
         secure=_IS_PROD,
-        samesite="lax",
+        samesite=_COOKIE_SAMESITE,
         max_age=refresh_token_cookie_max_age(),
         path="/",
     )
 
 
 def _clear_auth_cookies(response: Response) -> None:
-    """Delete both auth cookies."""
-    response.delete_cookie(
-        key=ACCESS_TOKEN_COOKIE,
-        path="/",
-        httponly=True,
-        samesite="lax",
-        secure=_IS_PROD,
-    )
-    response.delete_cookie(
-        key=REFRESH_TOKEN_COOKIE,
-        path="/",
-        httponly=True,
-        samesite="lax",
-        secure=_IS_PROD,
-    )
-    # Also delete legacy scoped path if present
-    response.delete_cookie(
-        key=REFRESH_TOKEN_COOKIE,
-        path="/api/auth",
-        httponly=True,
-        samesite="lax",
-        secure=_IS_PROD,
-    )
+    """Delete auth cookies across all configurations."""
+    for s_site in ("lax", "none"):
+        for path in ("/", "/api/auth"):
+            response.delete_cookie(
+                key=ACCESS_TOKEN_COOKIE,
+                path=path,
+                httponly=True,
+                samesite=s_site,
+                secure=_IS_PROD,
+            )
+            response.delete_cookie(
+                key=REFRESH_TOKEN_COOKIE,
+                path=path,
+                httponly=True,
+                samesite=s_site,
+                secure=_IS_PROD,
+            )
 
 
 @router.post(
@@ -163,14 +159,13 @@ async def signin(
     _set_access_cookie(response, access_token)
     _set_refresh_cookie(response, refresh_token)
 
-    # Return the access token in the JSON body so the client can hold it
-    # in memory (never localStorage).
     return SigninResponse(
         success=True,
         message="Signed in successfully",
         data=SigninData(
             user=PublicUser.model_validate(user),
             token=access_token,
+            refresh_token=refresh_token,
         ),
     )
 
@@ -185,14 +180,21 @@ async def signin(
 async def refresh(
     request: Request,
     response: Response,
+    payload: RefreshRequest | None = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> SigninResponse | JSONResponse:
     """Issue a new access token + rotated refresh token.
 
-    The client must present the ``cfo_refresh_token`` HttpOnly cookie.
+    Accepts refresh token from request JSON body or from HttpOnly cookie.
     The old session is revoked and a new one is created (rotation).
     """
-    raw_refresh = request.cookies.get(REFRESH_TOKEN_COOKIE)
+    raw_refresh: str | None = None
+    if payload and payload.refresh_token:
+        raw_refresh = payload.refresh_token.strip()
+
+    if not raw_refresh:
+        raw_refresh = request.cookies.get(REFRESH_TOKEN_COOKIE)
+
     if not raw_refresh:
         return _error(status.HTTP_401_UNAUTHORIZED, "Authentication required")
 
@@ -215,6 +217,7 @@ async def refresh(
         data=SigninData(
             user=PublicUser.model_validate(user),
             token=access_token,
+            refresh_token=new_refresh_token,
         ),
     )
 

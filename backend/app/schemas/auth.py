@@ -89,9 +89,14 @@ class SignupResponse(BaseModel):
     data: PublicUser
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str | None = None
+
+
 class SigninData(BaseModel):
     user: PublicUser
     token: str
+    refresh_token: str | None = None
 
 
 class SigninResponse(BaseModel):

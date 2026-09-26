@@ -139,6 +139,7 @@ export function ProfilePanel() {
       if (session) {
         setAuthSession({
           token: session.token,
+          refreshToken: session.refreshToken,
           user: { id: updated.id, name: updated.name, email: updated.email },
         });
       }
@@ -449,6 +450,7 @@ export function SecurityPanel() {
       if (session) {
         setAuthSession({
           token: result.token,
+          refreshToken: session.refreshToken,
           user: {
             id: result.user.id,
             name: result.user.name,
