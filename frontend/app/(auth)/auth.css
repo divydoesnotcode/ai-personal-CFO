@@ -28,12 +28,11 @@
   background:  var(--auth-bg);
   color:       var(--auth-ink);
   font-family: var(--auth-sans);
-  color-scheme: dark;
 }
 
 .auth-root ::selection {
   background: var(--auth-accent);
-  color:      var(--auth-bg);
+  color:      var(--cfo-on-accent);
 }
 
 /* ── Background grid & guides (reuse cfo-* definitions, keep auth-* names) ── */
@@ -93,7 +92,8 @@
 }
 
 .auth-top {
-  height:        52px;
+  min-height:    52px;
+  padding-block: 0.4rem;
   border-bottom: 1px solid var(--auth-line);
 }
 

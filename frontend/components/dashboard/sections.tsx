@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useReducedMotion } from "framer-motion";
 import { Plus } from "lucide-react";
@@ -32,6 +32,7 @@ import type {
   UpcomingItem,
 } from "@/lib/dashboard/types";
 import { CASH_FLOW_RANGES } from "@/lib/dashboard/types";
+import { currentTheme, type CfoTheme } from "@/lib/theme";
 import {
   formatDate,
   formatINR,
@@ -49,12 +50,39 @@ import {
   statusLabel,
 } from "./ui";
 
-const INK = "#efeae1";
-const ACCENT = "#c45c26";
-const SUCCESS = "#5fa67a";
-const DANGER = "#d26a5a";
-const FAINT = "#5c5850";
-const GRID = "rgba(239, 234, 225, 0.08)";
+const NIGHT_CHART = {
+  ink: "#efeae1",
+  accent: "#c45c26",
+  success: "#5fa67a",
+  danger: "#d26a5a",
+  faint: "#5c5850",
+  grid: "rgba(239, 234, 225, 0.08)",
+};
+
+function subscribeTheme(onStoreChange: () => void) {
+  window.addEventListener("cfo-theme", onStoreChange);
+  return () => window.removeEventListener("cfo-theme", onStoreChange);
+}
+
+function readChartColors(theme: CfoTheme) {
+  if (theme === "dark" || typeof document === "undefined") return NIGHT_CHART;
+  const styles = getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string) =>
+    styles.getPropertyValue(name).trim() || fallback;
+  return {
+    ink: read("--cfo-ink", NIGHT_CHART.ink),
+    accent: read("--cfo-accent", NIGHT_CHART.accent),
+    success: read("--cfo-success", NIGHT_CHART.success),
+    danger: read("--cfo-danger", NIGHT_CHART.danger),
+    faint: read("--cfo-ink-faint", NIGHT_CHART.faint),
+    grid: read("--cfo-line", NIGHT_CHART.grid),
+  };
+}
+
+function useChartColors() {
+  const theme = useSyncExternalStore(subscribeTheme, currentTheme, () => "dark" as const);
+  return readChartColors(theme);
+}
 
 export const OverviewCards = memo(function OverviewCards({
   overview,
@@ -224,6 +252,7 @@ export function CashFlowPanel({
   onRetry?: () => void;
 }) {
   const reduced = useReducedMotion();
+  const chart = useChartColors();
   return (
     <Panel
       title="Cash Flow"
@@ -257,15 +286,15 @@ export function CashFlowPanel({
           <div className="dash-chart">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke={GRID} />
+                <CartesianGrid vertical={false} stroke={chart.grid} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fill: FAINT, fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
-                  axisLine={{ stroke: GRID }}
+                  tick={{ fill: chart.faint, fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
+                  axisLine={{ stroke: chart.grid }}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: FAINT, fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
+                  tick={{ fill: chart.faint, fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
                   axisLine={false}
                   tickLine={false}
                   width={48}
@@ -273,49 +302,49 @@ export function CashFlowPanel({
                     new Intl.NumberFormat("en-IN", { notation: "compact" }).format(value)
                   }
                 />
-                <Tooltip content={<CashFlowTooltip />} cursor={{ stroke: INK, strokeOpacity: 0.2 }} />
+                <Tooltip content={<CashFlowTooltip />} cursor={{ stroke: chart.ink, strokeOpacity: 0.2 }} />
                 <Line
                   type="monotone"
                   dataKey="income"
                   name="Income"
-                  stroke={SUCCESS}
+                  stroke={chart.success}
                   strokeWidth={1.6}
                   dot={false}
                   isAnimationActive={!reduced}
-                  activeDot={{ r: 3, fill: SUCCESS }}
+                  activeDot={{ r: 3, fill: chart.success }}
                 />
                 <Line
                   type="monotone"
                   dataKey="expenses"
                   name="Expenses"
-                  stroke={DANGER}
+                  stroke={chart.danger}
                   strokeWidth={1.6}
                   dot={false}
                   isAnimationActive={!reduced}
-                  activeDot={{ r: 3, fill: DANGER }}
+                  activeDot={{ r: 3, fill: chart.danger }}
                 />
                 <Line
                   type="monotone"
                   dataKey="net"
                   name="Net"
-                  stroke={ACCENT}
+                  stroke={chart.accent}
                   strokeWidth={1.8}
                   dot={false}
                   isAnimationActive={!reduced}
-                  activeDot={{ r: 3, fill: ACCENT }}
+                  activeDot={{ r: 3, fill: chart.accent }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div className="dash-legend">
             <span>
-              <i style={{ background: SUCCESS }} /> Income
+              <i style={{ background: chart.success }} /> Income
             </span>
             <span>
-              <i style={{ background: DANGER }} /> Expenses
+              <i style={{ background: chart.danger }} /> Expenses
             </span>
             <span>
-              <i style={{ background: ACCENT }} /> Net flow
+              <i style={{ background: chart.accent }} /> Net flow
             </span>
           </div>
         </>

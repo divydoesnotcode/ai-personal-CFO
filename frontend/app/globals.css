@@ -29,8 +29,12 @@
 ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. DESIGN TOKENS ────────────────────────────────────────────────────── */
+/*
+  Night is the default. Day is the beige paper with the same burnt-orange accent.
+  data-theme is set before paint by the script in app/layout.tsx.
+*/
 :root {
-  /* Surfaces */
+  /* Surfaces — night */
   --cfo-bg: #0b0b0a;
   --cfo-bg-elevated: #111110;
 
@@ -43,14 +47,19 @@
   --cfo-line: rgba(239, 234, 225, 0.1);
   --cfo-line-strong: rgba(239, 234, 225, 0.22);
 
-  /* Accent — burnt orange */
+  /* Accent — burnt orange. Unchanged across themes. */
   --cfo-accent: #c45c26;
   --cfo-accent-soft: rgba(196, 92, 38, 0.14);
+  --cfo-on-accent: #140e0a;
 
-  /* Semantic */
+  /* Semantic — unchanged across themes */
   --cfo-danger: #d26a5a;
   --cfo-success: #5fa67a;
   --cfo-warn: #c9963a;
+
+  --cfo-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  --cfo-lift: 0 8px 20px rgba(0, 0, 0, 0.35);
+  --cfo-scrim: color-mix(in srgb, #0b0b0a 72%, transparent);
 
   /* Motion — short, ease-out, no bounce */
   --cfo-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -61,6 +70,37 @@
   --cfo-display: var(--font-cfo-display), "Times New Roman", serif;
   --cfo-sans: var(--font-cfo-sans), "Helvetica Neue", Helvetica, sans-serif;
   --cfo-mono: var(--font-cfo-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="beige"] {
+  /* Beige paper is the night ink. Sheets lift lighter, the way night surfaces do. */
+  --cfo-bg: #efeae1;
+  --cfo-bg-elevated: #f7f4ee;
+
+  --cfo-ink: #1c1915;
+  --cfo-ink-dim: #564e45;
+  --cfo-ink-faint: #8d8478;
+
+  /* Dark rules read heavier than light ones, so these stay quieter than night. */
+  --cfo-line: rgba(28, 25, 21, 0.08);
+  --cfo-line-strong: rgba(28, 25, 21, 0.16);
+
+  /* Same burnt orange as night, lowered just enough to hold on the paper.
+     Button and selection type is the paper itself. */
+  --cfo-accent: #a64e20;
+  --cfo-accent-soft: rgba(196, 92, 38, 0.12);
+  --cfo-on-accent: #efeae1;
+  --cfo-danger: #b44231;
+  --cfo-success: #407354;
+  --cfo-warn: #836124;
+
+  --cfo-shadow: 0 16px 36px rgba(28, 25, 21, 0.12);
+  --cfo-lift: 0 8px 18px rgba(28, 25, 21, 0.06);
+  --cfo-scrim: color-mix(in srgb, #1c1915 46%, transparent);
+
+  color-scheme: light;
 }
 
 /* ── 2. BASE ─────────────────────────────────────────────────────────────── */
@@ -76,8 +116,10 @@ body {
   font-family: var(--cfo-sans);
   scroll-behavior: smooth;
   overflow-x: hidden;
-  color-scheme: dark;
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color var(--cfo-duration) var(--cfo-ease),
+    color var(--cfo-duration) var(--cfo-ease);
 }
 
 /* ── 3. ROOT WRAPPER ─────────────────────────────────────────────────────── */
@@ -93,12 +135,11 @@ body {
   background: var(--cfo-bg);
   color: var(--cfo-ink);
   font-family: var(--cfo-sans);
-  color-scheme: dark;
 }
 
 .cfo-root ::selection {
   background: var(--cfo-accent);
-  color: var(--cfo-bg);
+  color: var(--cfo-on-accent);
 }
 
 /* ── 4. LAYOUT UTILITIES ─────────────────────────────────────────────────── */
@@ -189,8 +230,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  height: 52px;
-  padding: 0 1.15rem;
+  min-height: 52px;
+  padding: 0.4rem 1.15rem;
   border-bottom: 1px solid var(--cfo-line);
   background: color-mix(in srgb, var(--cfo-bg) 85%, transparent);
   backdrop-filter: blur(12px);
@@ -221,6 +262,53 @@ body {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.35rem 1.1rem;
+}
+
+/* Night / beige. The active half follows html[data-theme], so the control
+   does not need client state and cannot flash the wrong label. */
+.cfo-theme-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--cfo-line-strong);
+  background: transparent;
+  color: var(--cfo-ink-faint);
+  font-family: var(--cfo-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color var(--cfo-duration) var(--cfo-ease),
+    color var(--cfo-duration) var(--cfo-ease);
+}
+
+.cfo-theme-toggle span {
+  display: grid;
+  place-items: center;
+  padding: 0 0.55rem;
+}
+
+.cfo-theme-toggle-night {
+  border-right: 1px solid var(--cfo-line-strong);
+}
+
+:root:not([data-theme="beige"]) .cfo-theme-toggle-night,
+:root[data-theme="beige"] .cfo-theme-toggle-paper {
+  background: var(--cfo-ink);
+  color: var(--cfo-bg);
+}
+
+.cfo-theme-toggle:hover {
+  border-color: color-mix(in srgb, var(--cfo-ink) 45%, transparent);
+}
+
+.cfo-theme-toggle:focus-visible {
+  outline: 1px solid var(--cfo-accent);
+  outline-offset: 3px;
 }
 
 /* Blinking status dot */
@@ -359,7 +447,7 @@ body {
   .cfo-card:hover {
     border-color: color-mix(in srgb, var(--cfo-ink) 30%, transparent);
     background: color-mix(in srgb, var(--cfo-bg-elevated) 88%, transparent);
-    box-shadow: 0 8px 20px color-mix(in srgb, var(--cfo-bg) 22%, transparent);
+    box-shadow: var(--cfo-lift);
     transform: translateY(-2px);
   }
 }
@@ -644,7 +732,7 @@ body {
 .cfo-btn--accent {
   background: var(--cfo-accent);
   border: 1px solid var(--cfo-accent);
-  color: var(--cfo-bg);
+  color: var(--cfo-on-accent);
 }
 
 .cfo-btn--accent:hover:not(:disabled) {
@@ -1411,7 +1499,8 @@ body {
     scroll-behavior: auto;
   }
 
-  .cfo-reveal {
+  .cfo-reveal,
+  body {
     transition: none;
   }
 

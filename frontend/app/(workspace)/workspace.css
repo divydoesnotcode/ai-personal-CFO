@@ -1525,9 +1525,9 @@ html[data-density="compact"] .dash-subpage {
 
 @media (max-width: 959px) {
   .dash-stack > .dash-greeting {
-    order: 1;
+    order: -1;
   }
-  .dash-stack > .dash-overview {
+  .dash-stack > .dash-order-overview {
     order: 2;
   }
   .dash-stack > .dash-order-flow {
@@ -1567,6 +1567,10 @@ html[data-density="compact"] .dash-subpage {
   .dash-greeting {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .dash-greeting h1 {
+    font-size: 2.35rem;
   }
 
   .dash-updated {
@@ -1745,7 +1749,7 @@ html[data-density="compact"] .dash-subpage {
 .dash-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--cfo-bg) 75%, transparent);
+  background: var(--cfo-scrim);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 100;
@@ -1760,7 +1764,7 @@ html[data-density="compact"] .dash-subpage {
   max-height: calc(100dvh - 3rem);
   overflow-y: auto;
   margin: auto;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--cfo-shadow);
 }
 
 .dash-alert-dialog {

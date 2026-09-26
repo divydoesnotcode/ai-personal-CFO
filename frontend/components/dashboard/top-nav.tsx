@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Bell, LogOut, Menu, Search, X } from "lucide-react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { PRIMARY_NAV, PROFILE_MENU, SECONDARY_NAV } from "@/lib/dashboard/nav";
 import { formatRelativeTime } from "@/lib/format-money";
 import type { NotificationItem } from "@/lib/dashboard/types";
@@ -113,6 +114,7 @@ export function TopNav({
       </div>
 
       <div className="dash-top-right">
+        <ThemeToggle />
         <div style={{ position: "relative" }}>
           <button
             type="button"
