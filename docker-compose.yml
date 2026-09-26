@@ -91,13 +91,13 @@ services:
 
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
-      WATCHPACK_POLLING: "true"
-      CHOKIDAR_USEPOLLING: "true"
       HOSTNAME: 0.0.0.0
-      PORT: "3000"
+      PORT: "5678"
+
+    command: npm run dev
 
     ports:
-      - "3000:3000"
+      - "5678:5678"
 
     depends_on:
       backend:

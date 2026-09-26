@@ -73,9 +73,21 @@ class TransactionCreateRequest(BaseModel):
     transfer_account_id: UUID | None = None
 
 
+class TransactionUpdateRequest(BaseModel):
+    amount: Decimal = Field(gt=0)
+    transaction_type: TransactionType
+    account_id: UUID | None = None
+    category_id: UUID | None = None
+    description: str | None = Field(default=None, max_length=2000)
+    merchant_name: str | None = Field(default=None, max_length=255)
+    transaction_date: datetime | None = None
+    status: TransactionStatus = TransactionStatus.POSTED
+
+
 class TransactionOut(BaseModel):
     id: UUID
     account_id: UUID
+    account_name: str | None = None
     transaction_type: TransactionType
     status: TransactionStatus
     amount: Decimal

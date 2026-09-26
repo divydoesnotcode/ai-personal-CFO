@@ -100,6 +100,7 @@ export async function listCategories() {
 export type LedgerTransaction = {
   id: string;
   account_id?: string | null;
+  account_name?: string | null;
   transaction_type: string;
   status: string;
   amount: number | string;
@@ -119,6 +120,11 @@ export async function listTransactions(limit = 100) {
   });
 }
 
+export async function getTransaction(id: string) {
+  const response = await api.get<Envelope<LedgerTransaction>>(`/api/transactions/${id}`);
+  return response.data.data;
+}
+
 export async function createTransaction(payload: {
   amount: number;
   transaction_type: string;
@@ -130,6 +136,30 @@ export async function createTransaction(payload: {
   status?: string;
 }) {
   const response = await api.post("/api/transactions", payload);
+  invalidateLedgerCache("accounts", "transactions");
+  return response.data.data;
+}
+
+export async function updateTransaction(
+  id: string,
+  payload: {
+    amount: number;
+    transaction_type: string;
+    account_id?: string | null;
+    category_id?: string | null;
+    description?: string;
+    merchant_name?: string;
+    transaction_date?: string;
+    status?: string;
+  }
+) {
+  const response = await api.put(`/api/transactions/${id}`, payload);
+  invalidateLedgerCache("accounts", "transactions");
+  return response.data.data;
+}
+
+export async function deleteTransaction(id: string) {
+  const response = await api.delete(`/api/transactions/${id}`);
   invalidateLedgerCache("accounts", "transactions");
   return response.data.data;
 }
