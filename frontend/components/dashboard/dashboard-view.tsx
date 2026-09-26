@@ -9,6 +9,7 @@ import { useAskCfo } from "@/lib/dashboard/ask-cfo";
 import type { CashFlowRange } from "@/lib/dashboard/types";
 import { useDashboard } from "@/lib/dashboard/use-dashboard";
 import { useAuth } from "@/lib/use-auth";
+import { useOnboarding } from "@/lib/use-onboarding";
 import {
   firstName,
   formatMonthYear,
@@ -30,6 +31,7 @@ import {
   TransactionsPanel,
   UpcomingPanel,
 } from "./sections";
+import { GettingStartedFlow } from "./getting-started-flow";
 import { Corners } from "./ui";
 
 function fade(index: number, reduced: boolean | null) {
@@ -44,6 +46,7 @@ function fade(index: number, reduced: boolean | null) {
 export function DashboardView() {
   const { user } = useAuth();
   const { openPanel } = useAskCfo();
+  const { isCompleted: onboardingDone, loading: onboardingLoading, refresh: refreshOnboarding } = useOnboarding(Boolean(user));
   const { data, loading, error, retry } = useDashboard();
   const [range, setRange] = useState<CashFlowRange>("6M");
   const reduced = useReducedMotion();
@@ -71,35 +74,29 @@ export function DashboardView() {
     );
   }
 
+  // Strictly keep user in Onboarding flow until completion is persisted in PostgreSQL
+  if (!onboardingLoading && !onboardingDone) {
+    return (
+      <div className="dash-content-inner">
+        <GettingStartedFlow
+          onCompleted={() => {
+            refreshOnboarding();
+            retry();
+          }}
+        />
+      </div>
+    );
+  }
+
   if (!loading && data && !data.hasLedger) {
     return (
       <div className="dash-content-inner">
-        <section className="cfo-panel dash-panel">
-          <Corners accent />
-          <div className="cfo-panel-head">
-            <strong>Ledger</strong>
-            <span>AWAITING</span>
-          </div>
-          <div className="dash-empty">
-            <h2>Your financial picture is waiting.</h2>
-            <p>
-              Connect your accounts or add your first transaction to start
-              building your CFO dashboard.
-            </p>
-            <div className="dash-actions">
-              <Link href="/transactions" className="cfo-btn cfo-btn--ghost">
-                Get Started
-              </Link>
-              <button
-                type="button"
-                className="cfo-btn cfo-btn--ghost"
-                onClick={() => openPanel()}
-              >
-                Ask your CFO
-              </button>
-            </div>
-          </div>
-        </section>
+        <GettingStartedFlow
+          onCompleted={() => {
+            refreshOnboarding();
+            retry();
+          }}
+        />
       </div>
     );
   }

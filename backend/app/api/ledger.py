@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -347,7 +348,7 @@ async def list_budgets(
                 category_id=item.category_id,
                 category_name=item.category.name if item.category else "Category",
                 monthly_limit=item.monthly_limit,
-                spent=0,
+                spent=Decimal("0.00"),
             ).model_dump(mode="json")
             for item in budgets
         ],
@@ -372,7 +373,7 @@ async def upsert_budget(
             category_id=budget.category_id,
             category_name=budget.category.name if budget.category else "Category",
             monthly_limit=budget.monthly_limit,
-            spent=0,
+            spent=Decimal("0.00"),
         ).model_dump(mode="json"),
     )
 

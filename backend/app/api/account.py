@@ -208,6 +208,7 @@ async def get_security(
 async def post_password(
     payload: PasswordChangeRequest,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ) -> ItemResponse:

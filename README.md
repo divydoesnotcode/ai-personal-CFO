@@ -191,6 +191,9 @@ All API endpoints strictly communicate over JSON. Authenticated requests use `Au
 * **Node.js 20.9+** (22 LTS recommended)
 * **Docker Engine 24+ & Docker Compose v2**
 
+> [!TIP]
+> **Looking to deploy live for $0 / month?** Check out the step-by-step [**Free Cloud Deployment Guide (Vercel + Supabase + Render)**](DEPLOYMENT.md).
+
 ### 🐳 Option A: Docker Compose (Recommended)
 
 ```bash

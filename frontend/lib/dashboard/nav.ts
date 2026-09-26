@@ -30,6 +30,7 @@ export const SECONDARY_NAV: AppNavItem[] = [
 
 export const PROFILE_MENU = [
   { href: "/profile", label: "Profile" },
+  { href: "/settings?tab=accounts", label: "Manage Accounts" },
   { href: "/settings", label: "Settings" },
   { href: "/preferences", label: "Financial Preferences" },
   { href: "/security", label: "Security" },
