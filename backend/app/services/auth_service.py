@@ -167,21 +167,41 @@ async def rotate_refresh_token(
         select(UserSession).where(UserSession.refresh_token == raw_refresh_token)
     )
     session = result.scalar_one_or_none()
-
-    if (
-        session is None
-        or session.revoked_at is not None
-        or session.expires_at <= now
-    ):
+    if session is None or session.expires_at <= now:
         raise InvalidCredentialsError()
 
     user = await get_user_by_id(db, session.user_id)
     if user is None or not user.is_active:
         raise InvalidCredentialsError()
 
-    # Verify token_version hasn't been bumped (e.g. password change).
-    # We don't check this against the JWT here (no JWT in refresh flow),
-    # but a revoked/expired session is already caught above.
+    # Grace period (30s): If the session was already revoked very recently (e.g. concurrent refresh calls on reload),
+    # return the latest valid session or a fresh one instead of instantly rejecting.
+    if session.revoked_at is not None:
+        if (now - session.revoked_at).total_seconds() > 30:
+            raise InvalidCredentialsError()
+        latest_res = await db.execute(
+            select(UserSession)
+            .where(
+                UserSession.user_id == user.id,
+                UserSession.revoked_at.is_(None),
+                UserSession.expires_at > now,
+            )
+            .order_by(UserSession.created_at.desc())
+        )
+        latest_session = latest_res.scalars().first()
+        if latest_session:
+            access_token = create_access_token(
+                user_id=user.id,
+                email=user.email,
+                token_version=user.token_version,
+                jti=latest_session.id,
+            )
+            return user, access_token, latest_session.refresh_token
+
+        access_token, new_refresh_token = await issue_session(
+            db, user, user_agent=user_agent
+        )
+        return user, access_token, new_refresh_token
 
     # Revoke the consumed session (rotation — one-time use).
     session.revoked_at = now

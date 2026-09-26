@@ -70,7 +70,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         secure=_IS_PROD,
         samesite="lax",
         max_age=refresh_token_cookie_max_age(),
-        path="/api/auth",  # Scoped — only sent to auth endpoints
+        path="/",
     )
 
 
@@ -83,6 +83,14 @@ def _clear_auth_cookies(response: Response) -> None:
         samesite="lax",
         secure=_IS_PROD,
     )
+    response.delete_cookie(
+        key=REFRESH_TOKEN_COOKIE,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=_IS_PROD,
+    )
+    # Also delete legacy scoped path if present
     response.delete_cookie(
         key=REFRESH_TOKEN_COOKIE,
         path="/api/auth",
